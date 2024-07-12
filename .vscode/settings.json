@@ -9,4 +9,5 @@
     "elm.js": true,
     "elm-stuff": true
   },
+  "editor.formatOnSave": true
 }
