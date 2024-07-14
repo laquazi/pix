@@ -1,6 +1,7 @@
 {
     "type": "application",
     "source-directories": [
+        "D:/dev/proj/lib/elm/shaped-array/src",
         "src"
     ],
     "elm-version": "0.19.1",
@@ -10,7 +11,10 @@
             "elm/core": "1.0.5",
             "elm/html": "1.0.0",
             "elm/svg": "1.0.1",
-            "elm/time": "1.0.0"
+            "elm/time": "1.0.0",
+            "elm-community/array-extra": "2.6.0",
+            "elm-community/list-extra": "8.7.0",
+            "elm-community/maybe-extra": "5.3.0"
         },
         "indirect": {
             "elm/json": "1.1.3",

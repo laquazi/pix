@@ -1,0 +1,52 @@
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <title>Main</title>
+  <script src="elm.js"></script>
+</head>
+
+<body>
+  <div id="myapp"></div>
+  <script type="module">
+    import { chunkBySize, map, head, tail, isEmpty, skip, reverse } from "https://cdn.skypack.dev/@fable-org/fable-library-js@1.4.2/List.js?min";
+
+    function shapeList(shape_1, data) {
+      const start_shape = reverse(skip(1, shape_1));
+      const chunkByShape = (shape_2_mut, data_1_mut) => {
+        chunkByShape:
+        while (true) {
+          const shape_2 = shape_2_mut, data_1 = data_1_mut;
+          if (!isEmpty(shape_2)) {
+            if (isEmpty(tail(shape_2))) {
+              const size = head(shape_2) | 0;
+              return map((value) => value, chunkBySize(size, data_1));
+            }
+            else {
+              const rest = tail(shape_2);
+              const size_1 = head(shape_2) | 0;
+              shape_2_mut = rest;
+              data_1_mut = map((value_1) => value_1, chunkBySize(size_1, data_1));
+              continue chunkByShape;
+            }
+          }
+          else {
+            return data_1;
+          }
+          break;
+        }
+      };
+      return chunkByShape(start_shape, map((value_2) => value_2, data));
+    }
+
+    console.log(shapeList([2, 3], [1, 2, 3, 4, 5, 6]));
+
+    var app = Elm.Main.init({
+      node: document.getElementById('myapp')
+    });
+
+
+  </script>
+</body>
+
+</html>
