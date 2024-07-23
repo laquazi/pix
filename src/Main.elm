@@ -40,9 +40,7 @@ viewQuadtree0 x maxSize n =
 
         QuadNode node ->
             table
-                [ style "border-collapse" "collapse"
-                , style "z-index" "0"
-                ]
+                [ style "border-collapse" "collapse" ]
                 [ tbody []
                     [ tr []
                         [ td [ style "padding" "0" ] [ viewQuadtree0 node.tl maxSize (n + 1) ]
@@ -75,10 +73,6 @@ quad0 =
         }
 
 
-
--- scale 3 = 3x3
-
-
 viewRuler scale maxSize =
     let
         n =
@@ -89,10 +83,10 @@ viewRuler scale maxSize =
     in
     table
         [ style "border-collapse" "collapse"
-        , style "border-right" "1px solid #333"
-        , style "border-bottom" "1px solid #333"
+        , style "position" "absolute"
         , style "z-index" "1"
-        , style "box-sizing" "border-box"
+        , style "outline" "0.25px solid #333"
+        , style "outline-offset" "-0.25px"
         ]
         [ tbody []
             (List.repeat (round n)
@@ -100,15 +94,12 @@ viewRuler scale maxSize =
                     (List.repeat (round n)
                         (td
                             [ style "padding" "0"
-                            , style "border-left" "1px solid #333"
-                            , style "border-top" "1px solid #333"
-                            , style "box-sizing" "border-box"
+                            , style "outline" "0.125px solid #333"
+                            , style "outline-offset" "-0.125px"
                             ]
                             [ div
                                 [ style "width" sizeStr
                                 , style "height" sizeStr
-
-                                --style "background-color" "transp"
                                 ]
                                 [ text "\u{200B}" ]
                             ]
@@ -124,12 +115,8 @@ main =
         [ style "position" "absolute"
         , style "top" "10px"
         , style "left" "10px"
-
-        -- , style "box-sizing" "border-box"
-        -- , style "-moz-box-sizing" "border-box"
-        -- , style "-webkit-box-sizing" "border-box"
         ]
-        [ viewRuler 3 256
-        , viewQuadtree quad0 256
+        [ viewRuler 4 512
+        , viewQuadtree quad0 512
         , text (Debug.toString quad0)
         ]
