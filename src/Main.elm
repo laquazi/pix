@@ -4,58 +4,7 @@ import Browser
 import Html exposing (Html, button, div, table, tbody, td, text, tr)
 import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
-import ShapedArray exposing (..)
-
-
-type Quadtree a
-    = QuadLeaf a
-    | QuadNode { tl : Quadtree a, tr : Quadtree a, bl : Quadtree a, br : Quadtree a }
-    | QuadEmpty
-
-
-
--- TODO: scale
-
-
-viewPixel color n maxSize =
-    let
-        sizeStr =
-            String.fromFloat (maxSize / (2 ^ n)) ++ "px"
-    in
-    div
-        [ style "width" sizeStr
-        , style "height" sizeStr
-        , style "background-color" color
-        ]
-        [ text "\u{200B}" ]
-
-
-viewQuadtree0 x maxSize n =
-    case x of
-        QuadEmpty ->
-            viewPixel "#FFF" n maxSize
-
-        QuadLeaf color ->
-            viewPixel color n maxSize
-
-        QuadNode node ->
-            table
-                [ style "border-collapse" "collapse" ]
-                [ tbody []
-                    [ tr []
-                        [ td [ style "padding" "0" ] [ viewQuadtree0 node.tl maxSize (n + 1) ]
-                        , td [ style "padding" "0" ] [ viewQuadtree0 node.tr maxSize (n + 1) ]
-                        ]
-                    , tr []
-                        [ td [ style "padding" "0" ] [ viewQuadtree0 node.bl maxSize (n + 1) ]
-                        , td [ style "padding" "0" ] [ viewQuadtree0 node.br maxSize (n + 1) ]
-                        ]
-                    ]
-                ]
-
-
-viewQuadtree x maxSize =
-    viewQuadtree0 x maxSize 0
+import Quadtree exposing (..)
 
 
 quad0 =
@@ -71,6 +20,75 @@ quad0 =
                 , br = QuadEmpty
                 }
         }
+
+
+
+-- type alias Point =
+--     { x : Int
+--     , y : Int
+--     }
+
+
+type alias Color =
+    String
+
+
+
+-- MAIN
+
+
+main =
+    Browser.sandbox { init = init, update = update, view = view }
+
+
+
+-- MODEL
+
+
+type alias Model =
+    { scale : Int
+    , data : Quadtree Color
+    , size : Int
+    }
+
+
+init : Model
+init =
+    { scale = 2
+    , data = quad0
+    , size = 512
+    }
+
+
+
+-- UPDATE
+
+
+type Msg
+    = Reset
+    | ScaleChange Int
+
+
+update : Msg -> Model -> Model
+update msg model =
+    case msg of
+        Reset ->
+            init
+
+        ScaleChange newScale ->
+            if newScale < 0 then
+                { model | scale = 0 }
+
+            else
+                { model | scale = newScale }
+
+
+
+-- VIEW
+
+
+viewModelDebug model =
+    div [ style "margin" "10px" ] [ text (Debug.toString model) ]
 
 
 viewRuler scale maxSize =
@@ -110,13 +128,29 @@ viewRuler scale maxSize =
         ]
 
 
-main =
+viewCanvas model =
     div
-        [ style "position" "absolute"
-        , style "top" "10px"
-        , style "left" "10px"
+        [ style "position" "relative"
+        , style "margin" "10px"
         ]
-        [ viewRuler 4 512
-        , viewQuadtree quad0 512
-        , text (Debug.toString quad0)
+        [ viewRuler (toFloat model.scale) (toFloat model.size)
+        , viewQuadtree model.data (toFloat model.size)
+        ]
+
+
+viewMsgButtons model =
+    div [ style "margin" "10px" ]
+        [ button [ onClick Reset ] [ text "Reset" ]
+        , button [ onClick (ScaleChange (model.scale + 1)) ] [ text "Increment Scale" ]
+        , button [ onClick (ScaleChange (model.scale - 1)) ] [ text "Decrement Scale" ]
+        ]
+
+
+view : Model -> Html Msg
+view model =
+    div
+        [ style "position" "absolute" ]
+        [ viewMsgButtons model
+        , viewCanvas model
+        , viewModelDebug model
         ]
