@@ -1,6 +1,8 @@
 module Main exposing (..)
 
 import Browser
+import Color exposing (Color)
+import Color.Oklab
 import Html exposing (Html, button, div, table, tbody, td, text, tr)
 import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
@@ -9,14 +11,14 @@ import Quadtree exposing (..)
 
 quad0 =
     QuadNode
-        { tl = QuadLeaf "#F66"
-        , tr = QuadLeaf "#FF6"
-        , bl = QuadLeaf "#6F6"
+        { tl = QuadLeaf Color.red
+        , tr = QuadLeaf Color.orange
+        , bl = QuadLeaf Color.yellow
         , br =
             QuadNode
-                { tl = QuadLeaf "#6FF"
-                , tr = QuadLeaf "#66F"
-                , bl = QuadLeaf "#F6F"
+                { tl = QuadLeaf Color.green
+                , tr = QuadLeaf Color.blue
+                , bl = QuadLeaf Color.purple
                 , br = QuadEmpty
                 }
         }
@@ -27,13 +29,6 @@ quad0 =
 --     { x : Int
 --     , y : Int
 --     }
-
-
-type alias Color =
-    String
-
-
-
 -- MAIN
 
 
@@ -49,6 +44,7 @@ type alias Model =
     { scale : Int
     , data : Quadtree Color
     , size : Int
+    , colorpalette : List Color
     }
 
 
@@ -57,6 +53,43 @@ init =
     { scale = 2
     , data = quad0
     , size = 512
+    , colorpalette = []
+
+    -- [ "#FC0"
+    -- , "#CF0"
+    -- , "#0FC"
+    -- , "#F0C"
+    -- , "#C0F"
+    -- , "#0CF"
+    -- ]
+    -- [ Color.fromHex "#FFF"
+    -- , "#FFC"
+    -- , "#FF0"
+    -- , "#FCF"
+    -- , "#FCC"
+    -- , "#FC0"
+    -- , "#F0F"
+    -- , "#F0C"
+    -- , "#F00"
+    -- , "#CFF"
+    -- , "#CFC"
+    -- , "#CF0"
+    -- , "#CCF"
+    -- , "#CCC"
+    -- , "#CC0"
+    -- , "#C0F"
+    -- , "#C0C"
+    -- , "#C00"
+    -- , "#0FF"
+    -- , "#0FC"
+    -- , "#0F0"
+    -- , "#0CF"
+    -- , "#0CC"
+    -- , "#0C0"
+    -- , "#00F"
+    -- , "#00C"
+    -- , "#000"
+    -- ]
     }
 
 
@@ -138,6 +171,25 @@ viewCanvas model =
         ]
 
 
+viewColorpaletteColor color =
+    div
+        [ style "width" "40px"
+        , style "height" "40px"
+        , style "background-color" (Color.toCssString color)
+        ]
+        [ text "\u{200B}" ]
+
+
+viewColorpalette model =
+    div
+        [ style "margin" "10px"
+        , style "max-width" (String.fromInt model.size ++ "px")
+        , style "display" "flex"
+        , style "flex-wrap" "wrap"
+        ]
+        (model.colorpalette |> List.map (\x -> viewColorpaletteColor x))
+
+
 viewMsgButtons model =
     div [ style "margin" "10px" ]
         [ button [ onClick Reset ] [ text "Reset" ]
@@ -152,5 +204,6 @@ view model =
         [ style "position" "absolute" ]
         [ viewMsgButtons model
         , viewCanvas model
+        , viewColorpalette model
         , viewModelDebug model
         ]

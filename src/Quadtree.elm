@@ -1,6 +1,7 @@
 module Quadtree exposing (Quadtree(..), viewQuadtree)
 
 import Browser
+import Color exposing (Color)
 import Html exposing (Html, div, table, tbody, td, text, tr)
 import Html.Attributes exposing (style)
 
@@ -19,7 +20,7 @@ viewQuadleaf color n maxSize =
     div
         [ style "width" sizeStr
         , style "height" sizeStr
-        , style "background-color" color
+        , style "background-color" (Color.toCssString color)
         ]
         [ text "\u{200B}" ]
 
@@ -27,7 +28,7 @@ viewQuadleaf color n maxSize =
 viewQuadtree0 x maxSize n =
     case x of
         QuadEmpty ->
-            viewQuadleaf "#FFF" n maxSize
+            viewQuadleaf Color.white n maxSize
 
         QuadLeaf color ->
             viewQuadleaf color n maxSize
