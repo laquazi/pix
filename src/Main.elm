@@ -17,42 +17,82 @@ type Quadtree a
 -- TODO: scale, repr
 
 
-viewPixel color =
+viewPixel color size =
     div
-        [ style "width" "10px"
-        , style "height" "10px"
+        [ style "width" "100%"
+        , style "height" "100%"
         , style "background-color" color
         ]
         [ text "\u{200B}" ]
 
 
-viewQuadtreePixel color =
+viewQuadtreePixel color size =
     td [ style "padding" "0" ]
-        [ viewPixel color ]
+        [ viewPixel color size ]
 
 
-viewQuadtreePart x =
+
+-- viewQuadtree x =
+--     case x of
+--         QuadEmpty ->
+--             viewPixel "#FFF"
+--         QuadLeaf color ->
+--             viewPixel color
+--         QuadNode node ->
+--             table
+--                 [ style "border-collapse" "collapse" ]
+--                 [ tbody []
+--                     [ tr [] [ viewQuadtree node.tl, viewQuadtree node.tr ]
+--                     , tr [] [ viewQuadtree node.bl, viewQuadtree node.br ]
+--                     ]
+--                 ]
+
+
+viewQuadtree0 x n =
+    let
+        size =
+            1 / n
+    in
     case x of
         QuadEmpty ->
-            [ tr [] [ viewQuadtreePixel "#FFF" ] ]
+            viewPixel "#FFF" size
 
         QuadLeaf color ->
-            [ tr [] [ viewQuadtreePixel color ] ]
+            viewPixel color size
 
-        QuadNode colors ->
-            [ tr [] [ viewQuadtreePixel colors.tl, viewQuadtreePixel colors.tr ]
-            , tr [] [ viewQuadtreePixel colors.bl, viewQuadtreePixel colors.br ]
-            ]
+        QuadNode node ->
+            table
+                [ style "border-collapse" "collapse" ]
+                [ tbody []
+                    [ tr []
+                        [ td [ style "padding" "0" ] [ viewQuadtree node.tl ]
+                        , td [ style "padding" "0" ] [ viewQuadtree node.tr ]
+                        ]
+                    , tr []
+                        [ td [ style "padding" "0" ] [ viewQuadtree node.bl ]
+                        , td [ style "padding" "0" ] [ viewQuadtree node.br ]
+                        ]
+                    ]
+                ]
 
 
 viewQuadtree x =
-    table
-        [ style "border-collapse" "collapse" ]
-        [ tbody [] (viewQuadtreePart x) ]
+    div [ style "width" "100px", style "height" "100px" ] [ viewQuadtree0 x 1 ]
 
 
 quad0 =
-    QuadNode { tl = QuadLeaf 1, tr = QuadLeaf 2, bl = QuadLeaf 3, br = QuadNode { tl = QuadLeaf 1, tr = QuadLeaf 2, bl = QuadLeaf 3, br = QuadEmpty } }
+    QuadNode
+        { tl = QuadLeaf "#F66"
+        , tr = QuadLeaf "#FF6"
+        , bl = QuadLeaf "#6F6"
+        , br =
+            QuadNode
+                { tl = QuadLeaf "#6FF"
+                , tr = QuadLeaf "#66F"
+                , bl = QuadLeaf "#F6F"
+                , br = QuadEmpty
+                }
+        }
 
 
 test =
