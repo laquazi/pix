@@ -3,9 +3,11 @@ module Main exposing (..)
 import Browser
 import Color exposing (Color)
 import Color.Oklab
+import Color.Oklch
 import Html exposing (Html, button, div, table, tbody, td, text, tr)
 import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
+import List.Extra
 import Quadtree exposing (..)
 
 
@@ -53,43 +55,12 @@ init =
     { scale = 2
     , data = quad0
     , size = 512
-    , colorpalette = []
-
-    -- [ "#FC0"
-    -- , "#CF0"
-    -- , "#0FC"
-    -- , "#F0C"
-    -- , "#C0F"
-    -- , "#0CF"
-    -- ]
-    -- [ Color.fromHex "#FFF"
-    -- , "#FFC"
-    -- , "#FF0"
-    -- , "#FCF"
-    -- , "#FCC"
-    -- , "#FC0"
-    -- , "#F0F"
-    -- , "#F0C"
-    -- , "#F00"
-    -- , "#CFF"
-    -- , "#CFC"
-    -- , "#CF0"
-    -- , "#CCF"
-    -- , "#CCC"
-    -- , "#CC0"
-    -- , "#C0F"
-    -- , "#C0C"
-    -- , "#C00"
-    -- , "#0FF"
-    -- , "#0FC"
-    -- , "#0F0"
-    -- , "#0CF"
-    -- , "#0CC"
-    -- , "#0C0"
-    -- , "#00F"
-    -- , "#00C"
-    -- , "#000"
-    -- ]
+    , colorpalette =
+        List.Extra.initialize 100
+            (\x ->
+                Color.Oklch.oklch 0.8 0.5 (10 / (toFloat x + 1))
+                    |> Color.Oklch.toColor
+            )
     }
 
 
