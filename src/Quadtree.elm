@@ -2,6 +2,7 @@ module Quadtree exposing (Quadtree(..), viewQuadtree)
 
 import Browser
 import Color exposing (Color)
+import Common exposing (..)
 import Html exposing (Html, div, table, tbody, td, text, tr)
 import Html.Attributes exposing (style)
 
@@ -10,6 +11,23 @@ type Quadtree a
     = QuadLeaf a
     | QuadNode { tl : Quadtree a, tr : Quadtree a, bl : Quadtree a, br : Quadtree a }
     | QuadEmpty
+
+
+insertAtCoord : Point -> Int -> Quadtree a -> Quadtree a
+insertAtCoord { x, y } scale tree =
+    let
+        maxCoord =
+            2 ^ scale
+    in
+    case tree of
+        QuadEmpty ->
+            tree
+
+        QuadLeaf data ->
+            tree
+
+        QuadNode data ->
+            tree
 
 
 viewQuadleaf color n maxSize =

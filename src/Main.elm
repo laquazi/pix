@@ -4,6 +4,7 @@ import Browser
 import Color exposing (Color)
 import Color.Oklab
 import Color.Oklch
+import Common exposing (..)
 import Html exposing (Html, button, div, table, tbody, td, text, tr)
 import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
@@ -27,10 +28,6 @@ quad0 =
 
 
 
--- type alias Point =
---     { x : Int
---     , y : Int
---     }
 -- MAIN
 
 
@@ -43,8 +40,9 @@ main =
 
 
 type alias Model =
-    { scale : Int
-    , data : Quadtree Color
+    { canvas : Quadtree Color
+    , scale : Int
+    , isRulerVisible : Bool
     , size : Int
     , color : Color
     , colorpalette : List Color
@@ -53,8 +51,9 @@ type alias Model =
 
 init : Model
 init =
-    { scale = 2
-    , data = quad0
+    { canvas = quad0
+    , scale = 2
+    , isRulerVisible = True
     , size = 512
     , color = Color.rgb 255 219 0
     , colorpalette =
@@ -74,6 +73,8 @@ type Msg
     = Reset
     | ScaleChange Int
     | ColorChange Color
+    | RulerVisibleToggle
+    | Draw Point
 
 
 update : Msg -> Model -> Model
@@ -92,6 +93,13 @@ update msg model =
         ColorChange color ->
             { model | color = color }
 
+        RulerVisibleToggle ->
+            { model | isRulerVisible = not model.isRulerVisible }
+
+        Draw { x, y } ->
+            --TODO
+            { model | canvas = model.canvas }
+
 
 
 -- VIEW
@@ -101,7 +109,7 @@ viewModelDebug model =
     div [ style "margin" "10px" ] [ text (Debug.toString model) ]
 
 
-viewRuler scale maxSize =
+viewRuler scale maxSize isVisible =
     let
         n =
             2 ^ scale
@@ -109,32 +117,55 @@ viewRuler scale maxSize =
         sizeStr =
             String.fromFloat (maxSize / n) ++ "px"
     in
-    table
-        [ style "border-collapse" "collapse"
+    div
+        [ style "z-index" "1"
         , style "position" "absolute"
-        , style "z-index" "1"
-        , style "outline" "0.25px solid #333"
-        , style "outline-offset" "-0.25px"
+
+        --, style "border" "0.00625em solid #333"
+        -- , style "box-sizing" "border-box"
+        -- , style "box-shadow" "0.5px 0.5px -0.5px 1px #333"
+        , style "background-color" "#333"
+        , if isVisible then
+            style "visibility" "visible"
+
+          else
+            style "visibility" "hidden"
         ]
-        [ tbody []
-            (List.repeat (round n)
-                (tr []
-                    (List.repeat (round n)
-                        (td
-                            [ style "padding" "0"
-                            , style "outline" "0.125px solid #333"
-                            , style "outline-offset" "-0.125px"
-                            ]
-                            [ div
-                                [ style "width" sizeStr
-                                , style "height" sizeStr
-                                ]
-                                [ text "\u{200B}" ]
-                            ]
-                        )
+        [ div [] []
+        , table
+            [ style "border-collapse" "collapse"
+            , style "width" "99%"
+            , style "height" "99%"
+            , style "background-color" "transperent"
+            , style "z-index" "2"
+            ]
+            [ tbody []
+                (List.Extra.initialize (round n)
+                    (\y ->
+                        tr []
+                            (List.Extra.initialize (round n)
+                                (\x ->
+                                    td
+                                        [ style "padding" "0"
+                                        , style "width" sizeStr
+                                        , style "height" sizeStr
+                                        , style "background-color" "#333"
+                                        ]
+                                        [ div
+                                            [ style "width" "99.8%"
+                                            , style "height" "99.8%"
+
+                                            -- , style "border" "0.00625em solid #333"
+                                            -- , style "box-sizing" "border-box"
+                                            , onClick (Draw { x = x, y = y })
+                                            ]
+                                            [ text "\u{200B}" ]
+                                        ]
+                                )
+                            )
                     )
                 )
-            )
+            ]
         ]
 
 
@@ -143,8 +174,8 @@ viewCanvas model =
         [ style "position" "relative"
         , style "margin" "10px"
         ]
-        [ viewRuler (toFloat model.scale) (toFloat model.size)
-        , viewQuadtree model.data (toFloat model.size)
+        [ viewRuler (toFloat model.scale) (toFloat model.size) model.isRulerVisible
+        , viewQuadtree model.canvas (toFloat model.size)
         ]
 
 
@@ -173,6 +204,7 @@ viewMsgButtons model =
         [ button [ onClick Reset ] [ text "Reset" ]
         , button [ onClick (ScaleChange (model.scale + 1)) ] [ text "Increment Scale" ]
         , button [ onClick (ScaleChange (model.scale - 1)) ] [ text "Decrement Scale" ]
+        , button [ onClick RulerVisibleToggle ] [ text "Toggle Ruler" ]
         ]
 
 
