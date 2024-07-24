@@ -118,25 +118,27 @@ viewRuler scale maxSize isVisible =
             String.fromFloat (maxSize / n) ++ "px"
     in
     div
-        [ style "z-index" "1"
-        , style "position" "absolute"
-
-        --, style "border" "0.00625em solid #333"
-        -- , style "box-sizing" "border-box"
-        -- , style "box-shadow" "0.5px 0.5px -0.5px 1px #333"
-        , style "background-color" "#333"
+        [ style "position" "absolute"
+        , style "z-index" "1"
         , if isVisible then
             style "visibility" "visible"
 
           else
             style "visibility" "hidden"
         ]
-        [ div [] []
+        [ div
+            [ style "width" "100%"
+            , style "height" "100%"
+            , style "background-color" "#333"
+            , style "z-index" "1"
+            ]
+            [ text "\u{200B}" ]
         , table
             [ style "border-collapse" "collapse"
-            , style "width" "99%"
-            , style "height" "99%"
-            , style "background-color" "transperent"
+            , style "width" "99.8%"
+            , style "height" "99.8%"
+            , style "left" "0.1%"
+            , style "top" "0.1%"
             , style "z-index" "2"
             ]
             [ tbody []
@@ -149,14 +151,18 @@ viewRuler scale maxSize isVisible =
                                         [ style "padding" "0"
                                         , style "width" sizeStr
                                         , style "height" sizeStr
-                                        , style "background-color" "#333"
                                         ]
                                         [ div
-                                            [ style "width" "99.8%"
-                                            , style "height" "99.8%"
-
-                                            -- , style "border" "0.00625em solid #333"
-                                            -- , style "box-sizing" "border-box"
+                                            [ style "background-color" "#333"
+                                            , style "z-index" "1"
+                                            ]
+                                            [ text "\u{200B}" ]
+                                        , div
+                                            [ style "width" "99.98%"
+                                            , style "height" "99.98%"
+                                            , style "left" "0.1%"
+                                            , style "top" "0.1%"
+                                            , style "z-index" "2"
                                             , onClick (Draw { x = x, y = y })
                                             ]
                                             [ text "\u{200B}" ]
