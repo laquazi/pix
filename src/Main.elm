@@ -46,6 +46,7 @@ type alias Model =
     { scale : Int
     , data : Quadtree Color
     , size : Int
+    , color : Color
     , colorpalette : List Color
     }
 
@@ -55,6 +56,7 @@ init =
     { scale = 2
     , data = quad0
     , size = 512
+    , color = Color.rgb 255 219 0
     , colorpalette =
         List.Extra.initialize 100
             (\x ->
@@ -71,6 +73,7 @@ init =
 type Msg
     = Reset
     | ScaleChange Int
+    | ColorChange Color
 
 
 update : Msg -> Model -> Model
@@ -85,6 +88,9 @@ update msg model =
 
             else
                 { model | scale = newScale }
+
+        ColorChange color ->
+            { model | color = color }
 
 
 
@@ -147,6 +153,7 @@ viewColorpaletteColor color =
         [ style "width" "40px"
         , style "height" "40px"
         , style "background-color" (Color.toCssString color)
+        , onClick (ColorChange color)
         ]
         [ text "\u{200B}" ]
 
@@ -169,12 +176,23 @@ viewMsgButtons model =
         ]
 
 
+viewSelectedColor model =
+    div
+        [ style "width" "80px"
+        , style "height" "80px"
+        , style "background-color" (Color.toCssString model.color)
+        , style "margin" "10px"
+        ]
+        [ text "\u{200B}" ]
+
+
 view : Model -> Html Msg
 view model =
     div
         [ style "position" "absolute" ]
         [ viewMsgButtons model
         , viewCanvas model
+        , viewSelectedColor model
         , viewColorpalette model
         , viewModelDebug model
         ]
