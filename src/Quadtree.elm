@@ -31,6 +31,19 @@ quadnode tl tr bl br =
     [ tl, tr, bl, br ] |> Array.fromList |> QuadNode
 
 
+mapQuadrants : (Quadrant -> Quadtree a -> Quadtree b) -> Quadrants a -> Quadrants b
+mapQuadrants f quadrants =
+    Array.Extra.map2 f
+        (Array.fromList
+            [ TopLeft
+            , TopRight
+            , BottomLeft
+            , BottomRight
+            ]
+        )
+        quadrants
+
+
 repeatQuadtree : Quadtree a -> Quadrants a
 repeatQuadtree data =
     Array.repeat 4 data
@@ -57,13 +70,6 @@ getQuadrant quadrant quadrants =
     quadrants
         |> Array.get (getQuadrantId quadrant)
         |> Maybe.withDefault QuadEmpty
-
-
-
--- setQuadrant : Quadrant -> Quadtree a -> Quadrants a -> Quadtree a
--- setQuadrant quadrant quadtree quadrants =
---     quadrants
---         |> Array.set (getQuadrantId quadrant) quadtree
 
 
 setQuadrant : Quadrant -> Quadtree a -> Quadrants a -> Quadrants a
