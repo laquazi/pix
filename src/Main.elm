@@ -99,8 +99,7 @@ update msg model =
             { model | isRulerVisible = not model.isRulerVisible }
 
         Draw { x, y } ->
-            --TODO
-            { model | canvas = model.canvas }
+            { model | canvas = insertAtCoord model.color { x = x, y = y } model.scale model.canvas }
 
 
 
@@ -211,6 +210,10 @@ viewMsgButtons model =
         , button [ onClick (ScaleChange (model.scale + 1)) ] [ text "Increment Scale" ]
         , button [ onClick (ScaleChange (model.scale - 1)) ] [ text "Decrement Scale" ]
         , button [ onClick RulerVisibleToggle ] [ text "Toggle Ruler" ]
+        , button [ onClick (Draw { x = 0, y = 0 }) ] [ text "Draw Test" ]
+        , button [ onClick (Draw { x = 1, y = 1 }) ] [ text "Draw Test" ]
+        , button [ onClick (Draw { x = 2, y = 3 }) ] [ text "Draw Test" ]
+        , button [ onClick (Draw { x = 3, y = 3 }) ] [ text "Draw Test" ]
         ]
 
 
