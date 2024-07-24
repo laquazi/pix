@@ -85,70 +85,60 @@ scale2halfMaxCoord scale =
 
 coord2quadrant : Point -> Int -> Quadrant
 coord2quadrant { x, y } halfMaxCoord =
-    if x <= halfMaxCoord && y <= halfMaxCoord then
+    if x < halfMaxCoord && y < halfMaxCoord then
         TopLeft
 
-    else if x > halfMaxCoord && y <= halfMaxCoord then
+    else if x >= halfMaxCoord && y < halfMaxCoord then
         TopRight
 
-    else if x <= halfMaxCoord && y > halfMaxCoord then
+    else if x < halfMaxCoord && y >= halfMaxCoord then
         BottomLeft
 
     else
         BottomRight
 
 
-insertAtCoord0 : a -> Point -> Int -> Int -> Quadtree a -> Quadtree a
-insertAtCoord0 newData ({ x, y } as coord) scale maxScale tree =
+insertAtCoord : a -> Point -> Int -> Quadtree a -> Quadtree a
+insertAtCoord newData ({ x, y } as coord) scale tree =
     if scale <= 0 then
-        QuadLeaf newData |> log "leaf"
+        QuadLeaf newData
 
     else
         let
             halfMaxCoord =
-                scale2halfMaxCoord scale |> log "halfMaxCoord"
-
-            mycoord =
-                coord |> log "coord"
+                scale2halfMaxCoord scale
 
             newScale =
                 scale - 1
 
             newCoord =
-                { x = x |> remainderBy halfMaxCoord, y = y |> remainderBy halfMaxCoord } |> log "newCoord"
+                { x = x |> remainderBy halfMaxCoord, y = y |> remainderBy halfMaxCoord }
 
             quadrant =
                 coord2quadrant coord halfMaxCoord
         in
-        case tree |> log "tree" of
+        case tree of
             QuadNode quadrants ->
                 let
                     nodeQuadrant =
                         quadrants |> getQuadrant quadrant
 
                     newQuadrant =
-                        insertAtCoord0 newData newCoord newScale maxScale nodeQuadrant
+                        insertAtCoord newData newCoord newScale nodeQuadrant
                 in
                 quadrants
                     |> setQuadrant quadrant newQuadrant
                     |> QuadNode
-                    |> log "node"
 
             _ ->
                 let
                     newQuadrant =
-                        insertAtCoord0 newData newCoord newScale maxScale tree
+                        insertAtCoord newData newCoord newScale tree
                 in
                 tree
                     |> repeatQuadtree
                     |> setQuadrant quadrant newQuadrant
                     |> QuadNode
-                    |> log "node"
-
-
-insertAtCoord : a -> Point -> Int -> Quadtree a -> Quadtree a
-insertAtCoord newData coord scale tree =
-    insertAtCoord0 newData coord scale scale tree
 
 
 viewQuadLeaf0 color n maxSize =
