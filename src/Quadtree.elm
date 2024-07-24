@@ -1,5 +1,7 @@
-module Quadtree exposing (QuadNodeData, Quadtree(..), insertAtCoord, node, view)
+module Quadtree exposing (Quadrant, Quadrants, Quadtree(..), coord2quadrant, getQuadrant, getQuadrantId, insertAtCoord, quadnode, repeatQuadtree, scale2halfMaxCoord, viewQuadtree)
 
+import Array exposing (Array)
+import Array.Extra
 import Browser
 import Color exposing (Color)
 import Common exposing (..)
@@ -8,43 +10,86 @@ import Html exposing (Html, div, table, tbody, td, text, tr)
 import Html.Attributes exposing (style)
 
 
-
--- type Quadtree a
---     = QuadLeaf a
---     | QuadNode { tl : Quadtree a, tr : Quadtree a, bl : Quadtree a, br : Quadtree a }
---     | QuadEmpty
-
-
-type alias QuadNodeData a =
-    List (Quadtree a)
+type alias Quadrants a =
+    Array (Quadtree a)
 
 
 type Quadtree a
     = QuadLeaf a
-    | QuadNode (QuadNodeData a)
+    | QuadNode (Quadrants a)
     | QuadEmpty
 
 
-node tl tr bl br =
-    QuadNode [ tl, tr, bl, br ]
+type Quadrant
+    = TopLeft
+    | TopRight
+    | BottomLeft
+    | BottomRight
 
 
-repeatNodeData data =
-    List.repeat 4 data
+quadnode tl tr bl br =
+    [ tl, tr, bl, br ] |> Array.fromList |> QuadNode
 
 
-nodeId tree =
+repeatQuadtree : Quadtree a -> Quadrants a
+repeatQuadtree data =
+    Array.repeat 4 data
+
+
+getQuadrantId : Quadrant -> Int
+getQuadrantId quadrant =
+    case quadrant of
+        TopLeft ->
+            0
+
+        TopRight ->
+            1
+
+        BottomLeft ->
+            2
+
+        BottomRight ->
+            3
+
+
+getQuadrant : Quadrant -> Quadrants a -> Quadtree a
+getQuadrant quadrant quadrants =
+    quadrants
+        |> Array.get (getQuadrantId quadrant)
+        |> Maybe.withDefault QuadEmpty
+
+
+
+-- setQuadrant : Quadrant -> Quadtree a -> Quadrants a -> Quadtree a
+-- setQuadrant quadrant quadtree quadrants =
+--     quadrants
+--         |> Array.set (getQuadrantId quadrant) quadtree
+
+
+setQuadrant : Quadrant -> Quadtree a -> Quadrants a -> Quadrants a
+setQuadrant quadrant quadtree quadrants =
+    quadrants
+        |> Array.set (getQuadrantId quadrant) quadtree
+
+
+scale2halfMaxCoord : Int -> Int
+scale2halfMaxCoord scale =
+    (2 ^ scale) // 2
+
+
+coord2quadrant : Point -> Int -> Quadrant
+coord2quadrant { x, y } halfMaxCoord =
     if x <= halfMaxCoord && y <= halfMaxCoord then
-        { newNodeData0 | tl = newSubnode }
+        TopLeft
 
     else if x > halfMaxCoord && y <= halfMaxCoord then
-        { newNodeData0 | tr = newSubnode }
+        TopRight
 
     else if x <= halfMaxCoord && y > halfMaxCoord then
-        { newNodeData0 | bl = newSubnode }
+        BottomLeft
 
     else
-        { newNodeData0 | br = newSubnode }
+        BottomRight
 
 
 insertAtCoord0 : a -> Point -> Int -> Int -> Quadtree a -> Quadtree a
@@ -55,7 +100,7 @@ insertAtCoord0 newData ({ x, y } as coord) scale maxScale tree =
     else
         let
             halfMaxCoord =
-                (2 ^ scale) // 2 |> log "halfMaxCoord"
+                scale2halfMaxCoord scale |> log "halfMaxCoord"
 
             mycoord =
                 coord |> log "coord"
@@ -65,64 +110,34 @@ insertAtCoord0 newData ({ x, y } as coord) scale maxScale tree =
 
             newCoord =
                 { x = x |> remainderBy halfMaxCoord, y = y |> remainderBy halfMaxCoord } |> log "newCoord"
+
+            quadrant =
+                coord2quadrant coord halfMaxCoord
         in
-        log "node" <|
-            case tree |> log "tree" of
-                QuadEmpty ->
-                    let
-                        newNodeData0 =
-                            repeatNodeData QuadEmpty
+        case tree |> log "tree" of
+            QuadNode quadrants ->
+                let
+                    nodeQuadrant =
+                        quadrants |> getQuadrant quadrant
 
-                        newSubnode =
-                            insertAtCoord0 newData newCoord newScale maxScale QuadEmpty
-                    in
-                    QuadNode <|
-                        if x <= halfMaxCoord && y <= halfMaxCoord then
-                            { newNodeData0 | tl = newSubnode }
+                    newQuadrant =
+                        insertAtCoord0 newData newCoord newScale maxScale nodeQuadrant
+                in
+                quadrants
+                    |> setQuadrant quadrant newQuadrant
+                    |> QuadNode
+                    |> log "node"
 
-                        else if x > halfMaxCoord && y <= halfMaxCoord then
-                            { newNodeData0 | tr = newSubnode }
-
-                        else if x <= halfMaxCoord && y > halfMaxCoord then
-                            { newNodeData0 | bl = newSubnode }
-
-                        else
-                            { newNodeData0 | br = newSubnode }
-
-                QuadLeaf data ->
-                    let
-                        newNodeData0 =
-                            repeatNodeData (QuadLeaf data)
-
-                        newSubnode =
-                            insertAtCoord0 newData newCoord newScale maxScale (QuadLeaf data)
-                    in
-                    QuadNode <|
-                        if x <= halfMaxCoord && y <= halfMaxCoord then
-                            { newNodeData0 | tl = newSubnode }
-
-                        else if x > halfMaxCoord && y <= halfMaxCoord then
-                            { newNodeData0 | tr = newSubnode }
-
-                        else if x <= halfMaxCoord && y > halfMaxCoord then
-                            { newNodeData0 | bl = newSubnode }
-
-                        else
-                            { newNodeData0 | br = newSubnode }
-
-                QuadNode node ->
-                    QuadNode <|
-                        if x <= halfMaxCoord && y <= halfMaxCoord then
-                            { node | tl = insertAtCoord0 newData newCoord newScale maxScale node.tl }
-
-                        else if x > halfMaxCoord && y <= halfMaxCoord then
-                            { node | tr = insertAtCoord0 newData newCoord newScale maxScale node.tr }
-
-                        else if x <= halfMaxCoord && y > halfMaxCoord then
-                            { node | bl = insertAtCoord0 newData newCoord newScale maxScale node.bl }
-
-                        else
-                            { node | br = insertAtCoord0 newData newCoord newScale maxScale node.br }
+            _ ->
+                let
+                    newQuadrant =
+                        insertAtCoord0 newData newCoord newScale maxScale tree
+                in
+                tree
+                    |> repeatQuadtree
+                    |> setQuadrant quadrant newQuadrant
+                    |> QuadNode
+                    |> log "node"
 
 
 insertAtCoord : a -> Point -> Int -> Quadtree a -> Quadtree a
@@ -130,7 +145,7 @@ insertAtCoord newData coord scale tree =
     insertAtCoord0 newData coord scale scale tree
 
 
-viewQuadleaf color n maxSize =
+viewQuadLeaf0 color n maxSize =
     let
         sizeStr =
             String.fromFloat (maxSize / (2 ^ n)) ++ "px"
@@ -146,22 +161,22 @@ viewQuadleaf color n maxSize =
 viewQuadtree0 x maxSize n =
     case x of
         QuadEmpty ->
-            viewQuadleaf Color.white n maxSize
+            viewQuadLeaf0 Color.white n maxSize
 
         QuadLeaf color ->
-            viewQuadleaf color n maxSize
+            viewQuadLeaf0 color n maxSize
 
-        QuadNode node ->
+        QuadNode quadrants ->
             table
                 [ style "border-collapse" "collapse" ]
                 [ tbody []
                     [ tr []
-                        [ td [ style "padding" "0" ] [ viewQuadtree0 node.tl maxSize (n + 1) ]
-                        , td [ style "padding" "0" ] [ viewQuadtree0 node.tr maxSize (n + 1) ]
+                        [ td [ style "padding" "0" ] [ viewQuadtree0 (getQuadrant TopLeft quadrants) maxSize (n + 1) ]
+                        , td [ style "padding" "0" ] [ viewQuadtree0 (getQuadrant TopRight quadrants) maxSize (n + 1) ]
                         ]
                     , tr []
-                        [ td [ style "padding" "0" ] [ viewQuadtree0 node.bl maxSize (n + 1) ]
-                        , td [ style "padding" "0" ] [ viewQuadtree0 node.br maxSize (n + 1) ]
+                        [ td [ style "padding" "0" ] [ viewQuadtree0 (getQuadrant BottomLeft quadrants) maxSize (n + 1) ]
+                        , td [ style "padding" "0" ] [ viewQuadtree0 (getQuadrant BottomRight quadrants) maxSize (n + 1) ]
                         ]
                     ]
                 ]

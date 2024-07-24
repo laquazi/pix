@@ -15,18 +15,16 @@ import Svg.Attributes exposing (cx, cy, d, fill, height, id, patternUnits, r, rx
 
 
 quad0 =
-    QuadNode
-        { tl = QuadLeaf Color.red
-        , tr = QuadLeaf Color.orange
-        , bl = QuadLeaf Color.yellow
-        , br =
-            QuadNode
-                { tl = QuadLeaf Color.green
-                , tr = QuadLeaf Color.blue
-                , bl = QuadLeaf Color.purple
-                , br = QuadEmpty
-                }
-        }
+    quadnode
+        (QuadLeaf Color.red)
+        (QuadLeaf Color.orange)
+        (QuadLeaf Color.yellow)
+        (quadnode
+            (QuadLeaf Color.green)
+            (QuadLeaf Color.blue)
+            (QuadLeaf Color.purple)
+            QuadEmpty
+        )
 
 
 
