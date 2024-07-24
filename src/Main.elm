@@ -10,6 +10,8 @@ import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
 import List.Extra
 import Quadtree exposing (..)
+import Svg exposing (circle, defs, path, pattern, rect, svg)
+import Svg.Attributes exposing (cx, cy, d, fill, height, id, patternUnits, r, rx, ry, stroke, strokeWidth, viewBox, width, x, y)
 
 
 quad0 =
@@ -115,64 +117,116 @@ viewRuler scale maxSize isVisible =
             2 ^ scale
 
         sizeStr =
-            String.fromFloat (maxSize / n) ++ "px"
+            String.fromFloat (maxSize / n)
+
+        maxSizeStr =
+            String.fromFloat maxSize
     in
     div
         [ style "position" "absolute"
         , style "z-index" "1"
+        , style "width" (maxSizeStr ++ "px")
+        , style "height" (maxSizeStr ++ "px")
         , if isVisible then
             style "visibility" "visible"
 
           else
             style "visibility" "hidden"
         ]
-        [ div
-            [ style "width" "100%"
-            , style "height" "100%"
-            , style "background-color" "#333"
-            , style "z-index" "1"
+        [ svg
+            [ width "100%"
+            , height "100%"
+            , viewBox "0 0 100% 100%"
             ]
-            [ text "\u{200B}" ]
-        , table
-            [ style "border-collapse" "collapse"
-            , style "width" "99.8%"
-            , style "height" "99.8%"
-            , style "left" "0.1%"
-            , style "top" "0.1%"
-            , style "z-index" "2"
-            ]
-            [ tbody []
-                (List.Extra.initialize (round n)
-                    (\y ->
-                        tr []
-                            (List.Extra.initialize (round n)
-                                (\x ->
-                                    td
-                                        [ style "padding" "0"
-                                        , style "width" sizeStr
-                                        , style "height" sizeStr
-                                        ]
-                                        [ div
-                                            [ style "background-color" "#333"
-                                            , style "z-index" "1"
-                                            ]
-                                            [ text "\u{200B}" ]
-                                        , div
-                                            [ style "width" "99.98%"
-                                            , style "height" "99.98%"
-                                            , style "left" "0.1%"
-                                            , style "top" "0.1%"
-                                            , style "z-index" "2"
-                                            , onClick (Draw { x = x, y = y })
-                                            ]
-                                            [ text "\u{200B}" ]
-                                        ]
-                                )
-                            )
-                    )
-                )
+            [ defs []
+                [ pattern
+                    [ id "grid"
+                    , width sizeStr
+                    , height sizeStr
+                    , patternUnits "userSpaceOnUse"
+                    ]
+                    [ path
+                        [ d ("M " ++ sizeStr ++ " 0 L 0 0 0 " ++ sizeStr)
+                        , fill "none"
+                        , stroke "#333"
+                        , strokeWidth "1"
+                        ]
+                        []
+                    ]
+                ]
+            , rect
+                [ width "100%"
+                , height "100%"
+                , fill "url(#grid)"
+                ]
+                []
+            , path
+                [ d ("M " ++ maxSizeStr ++ " 0 L " ++ maxSizeStr ++ " " ++ maxSizeStr ++ " 0 " ++ maxSizeStr)
+                , fill "none"
+                , stroke "#333"
+                , strokeWidth "6"
+                ]
+                []
             ]
         ]
+
+
+
+-- div
+--     [ style "position" "absolute"
+--     , style "z-index" "1"
+--     , if isVisible then
+--         style "visibility" "visible"
+--       else
+--         style "visibility" "hidden"
+--     ]
+--     [ div
+--         [ style "width" "100%"
+--         , style "height" "100%"
+--         , style "background-color" "#333"
+--         , style "z-index" "1"
+--         ]
+--         [ text "\u{200B}" ]
+--     , table
+--         [ style "border-collapse" "collapse"
+--         , style "width" "99.8%"
+--         , style "height" "99.8%"
+--         , style "left" "0.1%"
+--         , style "top" "0.1%"
+--         , style "z-index" "2"
+--         ]
+--         [ tbody []
+--             (List.Extra.initialize (round n)
+--                 (\y ->
+--                     tr []
+--                         (List.Extra.initialize (round n)
+--                             (\x ->
+--                                 td
+--                                     [ style "padding" "0"
+--                                     , style "width" sizeStr
+--                                     , style "height" sizeStr
+--                                     ]
+--                                     [ div
+--                                         [ style "background-color" "#333"
+--                                         , style "z-index" "1"
+--                                         ]
+--                                         [ text "\u{200B}" ]
+--                                     , div
+--                                         [ style "width" "99.98%"
+--                                         , style "height" "99.98%"
+--                                         , style "left" "0.1%"
+--                                         , style "top" "0.1%"
+--                                         , style "z-index" "2"
+--                                         , onClick (Draw { x = x, y = y })
+--                                         ]
+--                                         [ text "\u{200B}" ]
+--                                     ]
+--                             )
+--                         )
+--                 )
+--             )
+--         ]
+--     ]
 
 
 viewCanvas model =
