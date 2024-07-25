@@ -63,15 +63,15 @@ type alias Model =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { canvas = quad0
-      , scale = 2
+    ( { canvas = QuadEmpty
+      , scale = 3
       , isRulerVisible = True
       , size = 512
       , color = Color.rgb 255 219 0
       , colorpalette =
-            List.Extra.initialize 100
+            List.Extra.initialize 24
                 (\x ->
-                    Color.Oklch.oklch 0.8 0.5 (10 / (toFloat x + 1))
+                    Color.Oklch.oklch 0.7 0.4 (10 / (toFloat x + 1))
                         |> Color.Oklch.toColor
                 )
       }
@@ -181,10 +181,10 @@ viewRuler scale maxSize isVisible =
         , style "height" (maxSizeStr ++ "px")
         , id "canvasRuler"
         , if isVisible then
-            style "visibility" "visible"
+            style "opacity" "100%"
 
           else
-            style "visibility" "hidden"
+            style "opacity" "0%"
         ]
         [ svg
             [ width "100%"
@@ -264,22 +264,6 @@ viewMsgButtons model =
         , button [ onClick (ChangeScale (model.scale + 1)) ] [ text "Increment Scale" ]
         , button [ onClick (ChangeScale (model.scale - 1)) ] [ text "Decrement Scale" ]
         , button [ onClick RulerVisibleToggle ] [ text "Toggle Ruler" ]
-        , button [ onClick (Draw { x = 0, y = 0 }) ] [ text "draw(0,0)" ]
-        , button [ onClick (Draw { x = 1, y = 0 }) ] [ text "draw(0,1)" ]
-        , button [ onClick (Draw { x = 2, y = 0 }) ] [ text "draw(0,2)" ]
-        , button [ onClick (Draw { x = 3, y = 0 }) ] [ text "draw(0,3)" ]
-        , button [ onClick (Draw { x = 0, y = 1 }) ] [ text "draw(1,0)" ]
-        , button [ onClick (Draw { x = 1, y = 1 }) ] [ text "draw(1,1)" ]
-        , button [ onClick (Draw { x = 2, y = 1 }) ] [ text "draw(1,2)" ]
-        , button [ onClick (Draw { x = 3, y = 1 }) ] [ text "draw(1,3)" ]
-        , button [ onClick (Draw { x = 0, y = 2 }) ] [ text "draw(2,0)" ]
-        , button [ onClick (Draw { x = 1, y = 2 }) ] [ text "draw(2,1)" ]
-        , button [ onClick (Draw { x = 2, y = 2 }) ] [ text "draw(2,2)" ]
-        , button [ onClick (Draw { x = 3, y = 2 }) ] [ text "draw(2,3)" ]
-        , button [ onClick (Draw { x = 0, y = 3 }) ] [ text "draw(3,0)" ]
-        , button [ onClick (Draw { x = 1, y = 3 }) ] [ text "draw(3,1)" ]
-        , button [ onClick (Draw { x = 2, y = 3 }) ] [ text "draw(3,2)" ]
-        , button [ onClick (Draw { x = 3, y = 3 }) ] [ text "draw(3,3)" ]
         ]
 
 
@@ -296,10 +280,15 @@ viewSelectedColor model =
 view : Model -> Html Msg
 view model =
     div
-        [ style "position" "absolute" ]
+        [ style "position" "absolute"
+        , style "background-color" "#EEE"
+        , style "width" "100%"
+        , style "height" "100%"
+        ]
         [ viewMsgButtons model
         , viewCanvas model
         , viewSelectedColor model
         , viewColorpalette model
-        , viewModelDebug model
+
+        -- , viewModelDebug model
         ]

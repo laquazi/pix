@@ -164,7 +164,9 @@ viewQuadtree0 x maxSize n =
 
         QuadNode quadrants ->
             table
-                [ style "border-collapse" "collapse" ]
+                [ style "border-collapse" "collapse"
+                , style "user-select" "none"
+                ]
                 [ tbody []
                     [ tr []
                         [ td [ style "padding" "0" ] [ viewQuadtree0 (getQuadrant TopLeft quadrants) maxSize (n + 1) ]

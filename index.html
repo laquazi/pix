@@ -4,6 +4,11 @@
   <meta charset="UTF-8">
   <title>Main</title>
   <script type="text/javascript" src="elm.js"></script>
+  <style type="text/css">
+    body {
+      margin: 0;
+    }
+  </style>
 </head>
 
 <body>
@@ -16,9 +21,6 @@
   }
 
   // MAIN
-  // var app = Elm.Main.init({
-  //   node: document.getElementById('shell')
-  // });
   var shell = document.getElementById('shell')
 
   var app = window.Elm.Main.init({
@@ -30,8 +32,8 @@
   canvasRuler.addEventListener('click', function (event) {
     const target = event.target;
     const rect = target.getBoundingClientRect();
-    let x = Math.round(event.clientX - rect.left);
-    let y = Math.round(event.clientY - rect.top);
+    let x = Math.floor(event.clientX - rect.left);
+    let y = Math.floor(event.clientY - rect.top);
     app.ports.canvasRulerPressed.send(point(x, y));
   });
 
