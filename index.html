@@ -11,10 +11,19 @@
 </body>
 <script type="text/javascript">
 
-  var app = Elm.Main.init({
+  function point(x, y) {
+    return { x: x, y: y };
+  }
+
+  // MAIN
+  // var app = Elm.Main.init({
+  //   node: document.getElementById('myapp')
+  // });
+  var app = window.Elm.Main.init({
     node: document.getElementById('myapp')
   });
 
+  app.ports.canvasRulerPressed.send(point(0, 0));
 
 </script>
 
