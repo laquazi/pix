@@ -113,12 +113,12 @@ update msg model =
         RulerVisibleToggle ->
             ( { model | isRulerVisible = not model.isRulerVisible }, Cmd.none )
 
-        Draw { canvasX, canvasY } ->
+        Draw { x, y } ->
             ( { model
                 | canvas =
                     insertAtCoord model.color
-                        { x = canvasX
-                        , y = canvasY
+                        { x = (x * (2 ^ model.scale)) // model.size
+                        , y = (y * (2 ^ model.scale)) // model.size
                         }
                         model.scale
                         model.canvas
@@ -138,9 +138,9 @@ update msg model =
 -- SUBSCRIPTIONS
 
 
-decodePointf : JD.Decoder Pointf
-decodePointf =
-    JD.map2 Pointf (JD.field "x" JD.float) (JD.field "y" JD.float)
+decodePoint : JD.Decoder Point
+decodePoint =
+    JD.map2 Point (JD.field "x" JD.int) (JD.field "y" JD.int)
 
 
 subscriptions : Model -> Sub Msg
@@ -148,7 +148,7 @@ subscriptions _ =
     canvasRulerPressed
         (\jsPoint ->
             jsPoint
-                |> JD.decodeValue decodePointf
+                |> JD.decodeValue decodePoint
                 |> Result.Extra.unpack
                     (\error -> Log ( "Error", JD.errorToString error ))
                     Draw

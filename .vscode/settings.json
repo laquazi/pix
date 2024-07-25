@@ -7,12 +7,20 @@
     "**/.settings": true,
     "**/.factorypath": true,
     "elm.js": true,
-    "elm-stuff": true
+    "elm-stuff": true,
+    "elm-watch.json": true
   },
   "editor.formatOnSave": true,
   "cSpell.words": [
     "mdgriffith",
     "myapp",
-    "oklch"
-  ]
+    "oklch",
+    "pointf",
+    "Quadtree"
+  ],
+  "explorer.autoReveal": false
+
+  // "explorer.autoRevealExclude": {
+  //   "elm.js": true
+  // }
 }

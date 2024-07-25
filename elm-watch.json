@@ -2,9 +2,9 @@
     "targets": {
         "Debug": {
             "inputs": [
-                "src/Main.elm"
+                "./src/Main.elm"
             ],
-            "output": "elm.js"
+            "output": "./elm.js"
         }
     }
 }
