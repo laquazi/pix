@@ -1,17 +1,24 @@
-module Main exposing (..)
+port module Main exposing (..)
 
 import Browser
 import Color exposing (Color)
 import Color.Oklab
 import Color.Oklch
 import Common exposing (..)
+import Debug exposing (log)
 import Html exposing (Html, button, div, table, tbody, td, text, tr)
 import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
+import Json.Decode as JD
+import Json.Encode as JE
 import List.Extra
 import Quadtree exposing (..)
+import Result.Extra
 import Svg exposing (circle, defs, path, pattern, rect, svg)
 import Svg.Attributes exposing (cx, cy, d, fill, height, id, patternUnits, r, rx, ry, shapeRendering, stroke, strokeWidth, viewBox, width, x, y)
+
+
+port canvasRulerPressed : (JE.Value -> msg) -> Sub msg
 
 
 quad0 =
@@ -32,7 +39,12 @@ quad0 =
 
 
 main =
-    Browser.sandbox { init = init, update = update, view = view }
+    Browser.element
+        { init = init
+        , update = update
+        , subscriptions = subscriptions
+        , view = view
+        }
 
 
 
@@ -49,20 +61,22 @@ type alias Model =
     }
 
 
-init : Model
-init =
-    { canvas = quad0
-    , scale = 2
-    , isRulerVisible = True
-    , size = 512
-    , color = Color.rgb 255 219 0
-    , colorpalette =
-        List.Extra.initialize 100
-            (\x ->
-                Color.Oklch.oklch 0.8 0.5 (10 / (toFloat x + 1))
-                    |> Color.Oklch.toColor
-            )
-    }
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( { canvas = quad0
+      , scale = 2
+      , isRulerVisible = True
+      , size = 512
+      , color = Color.rgb 255 219 0
+      , colorpalette =
+            List.Extra.initialize 100
+                (\x ->
+                    Color.Oklch.oklch 0.8 0.5 (10 / (toFloat x + 1))
+                        |> Color.Oklch.toColor
+                )
+      }
+    , Cmd.none
+    )
 
 
 
@@ -71,33 +85,64 @@ init =
 
 type Msg
     = Reset
-    | ScaleChange Int
-    | ColorChange Color
+    | ChangeScale Int
+    | ChangeColor Color
     | RulerVisibleToggle
     | Draw Point
+    | Log ( String, String )
 
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Reset ->
-            init
+            init ()
 
-        ScaleChange newScale ->
-            if newScale < 0 then
+        ChangeScale newScale ->
+            ( if newScale < 0 then
                 { model | scale = 0 }
 
-            else
+              else
                 { model | scale = newScale }
+            , Cmd.none
+            )
 
-        ColorChange color ->
-            { model | color = color }
+        ChangeColor color ->
+            ( { model | color = color }, Cmd.none )
 
         RulerVisibleToggle ->
-            { model | isRulerVisible = not model.isRulerVisible }
+            ( { model | isRulerVisible = not model.isRulerVisible }, Cmd.none )
 
         Draw { x, y } ->
-            { model | canvas = insertAtCoord model.color { x = x, y = y } model.scale model.canvas }
+            ( { model | canvas = insertAtCoord model.color { x = x, y = y } model.scale model.canvas }, Cmd.none )
+
+        Log ( tag, value ) ->
+            let
+                l =
+                    log tag value
+            in
+            ( model, Cmd.none )
+
+
+
+-- SUBSCRIPTIONS
+
+
+decodePoint : JD.Decoder Point
+decodePoint =
+    JD.map2 Point (JD.field "x" JD.int) (JD.field "y" JD.int)
+
+
+subscriptions : Model -> Sub Msg
+subscriptions _ =
+    canvasRulerPressed
+        (\jsPoint ->
+            jsPoint
+                |> JD.decodeValue decodePoint
+                |> Result.Extra.unpack
+                    (\error -> Log ( "Error", JD.errorToString error ))
+                    Draw
+        )
 
 
 
@@ -124,6 +169,7 @@ viewRuler scale maxSize isVisible =
         , style "z-index" "1"
         , style "width" (maxSizeStr ++ "px")
         , style "height" (maxSizeStr ++ "px")
+        , id "canvasRuler"
         , if isVisible then
             style "visibility" "visible"
 
@@ -187,7 +233,7 @@ viewColorpaletteColor color =
         [ style "width" "40px"
         , style "height" "40px"
         , style "background-color" (Color.toCssString color)
-        , onClick (ColorChange color)
+        , onClick (ChangeColor color)
         ]
         [ text "\u{200B}" ]
 
@@ -205,8 +251,8 @@ viewColorpalette model =
 viewMsgButtons model =
     div [ style "margin" "10px" ]
         [ button [ onClick Reset ] [ text "Reset" ]
-        , button [ onClick (ScaleChange (model.scale + 1)) ] [ text "Increment Scale" ]
-        , button [ onClick (ScaleChange (model.scale - 1)) ] [ text "Decrement Scale" ]
+        , button [ onClick (ChangeScale (model.scale + 1)) ] [ text "Increment Scale" ]
+        , button [ onClick (ChangeScale (model.scale - 1)) ] [ text "Decrement Scale" ]
         , button [ onClick RulerVisibleToggle ] [ text "Toggle Ruler" ]
         , button [ onClick (Draw { x = 0, y = 0 }) ] [ text "draw(0,0)" ]
         , button [ onClick (Draw { x = 1, y = 0 }) ] [ text "draw(0,1)" ]
