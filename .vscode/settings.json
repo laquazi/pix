@@ -8,7 +8,8 @@
     "**/.factorypath": true,
     "elm.js": true,
     "elm-stuff": true,
-    "elm-watch.json": true
+    "elm-watch.json": true,
+    ".github": true
   },
   "editor.formatOnSave": true,
   "cSpell.words": [
