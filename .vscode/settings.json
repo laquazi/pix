@@ -19,9 +19,7 @@
     "pointf",
     "Quadtree"
   ],
-  "explorer.autoReveal": false
-
-  // "explorer.autoRevealExclude": {
-  //   "elm.js": true
-  // }
+  "files.watcherExclude": {
+    "elm.js": true
+  }
 }

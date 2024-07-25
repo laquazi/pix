@@ -141,6 +141,10 @@ insertAtCoord newData ({ x, y } as coord) scale tree =
                     |> QuadNode
 
 
+
+-- TODO: Merge
+
+
 viewQuadLeaf0 color n maxSize =
     let
         sizeStr =

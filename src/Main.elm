@@ -90,6 +90,7 @@ type Msg
     | RulerVisibleToggle
     | Draw Point
     | Log ( String, String )
+    | ClearCanvas
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -132,6 +133,9 @@ update msg model =
                     log tag value
             in
             ( model, Cmd.none )
+
+        ClearCanvas ->
+            ( { model | canvas = QuadEmpty }, Cmd.none )
 
 
 
@@ -258,15 +262,6 @@ viewColorpalette model =
         (model.colorpalette |> List.map (\x -> viewColorpaletteColor x))
 
 
-viewMsgButtons model =
-    div [ style "margin" "10px" ]
-        [ button [ onClick Reset ] [ text "Reset" ]
-        , button [ onClick (ChangeScale (model.scale + 1)) ] [ text "Increment Scale" ]
-        , button [ onClick (ChangeScale (model.scale - 1)) ] [ text "Decrement Scale" ]
-        , button [ onClick RulerVisibleToggle ] [ text "Toggle Ruler" ]
-        ]
-
-
 viewSelectedColor model =
     div
         [ style "width" "80px"
@@ -275,6 +270,16 @@ viewSelectedColor model =
         , style "margin" "10px"
         ]
         [ text "\u{200B}" ]
+
+
+viewMsgButtons model =
+    div [ style "margin" "10px" ]
+        [ button [ onClick Reset ] [ text "Reset" ]
+        , button [ onClick ClearCanvas ] [ text "Clear" ]
+        , button [ onClick (ChangeScale (model.scale + 1)) ] [ text "+ Scale" ]
+        , button [ onClick (ChangeScale (model.scale - 1)) ] [ text "- Scale" ]
+        , button [ onClick RulerVisibleToggle ] [ text "Toggle Ruler" ]
+        ]
 
 
 view : Model -> Html Msg
