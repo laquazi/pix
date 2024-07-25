@@ -1,7 +1,6 @@
 {
     "type": "application",
     "source-directories": [
-        "D:/dev/proj/lib/elm/shaped-array/src",
         "src"
     ],
     "elm-version": "0.19.1",
