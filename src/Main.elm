@@ -5,11 +5,10 @@ module Main exposing (..)
 
 import Browser
 import Color exposing (Color)
-import Color.Oklab
 import Color.Oklch
 import Common exposing (..)
 import Debug exposing (log)
-import Html exposing (Html, button, div, table, tbody, td, text, tr)
+import Html exposing (Html, button, div, text)
 import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
 import Html.Events.Extra.Pointer as Pointer
@@ -18,8 +17,8 @@ import Json.Encode as JE
 import List.Extra
 import Quadtree exposing (..)
 import Result.Extra
-import Svg exposing (circle, defs, path, pattern, rect, svg)
-import Svg.Attributes exposing (cx, cy, d, fill, height, id, patternUnits, r, rx, ry, shapeRendering, stroke, strokeWidth, viewBox, width, x, y)
+import Svg exposing (defs, pattern, rect, svg)
+import Svg.Attributes exposing (fill, height, id, patternUnits, shapeRendering, stroke, strokeWidth, width, x, y)
 import Task
 
 
@@ -38,6 +37,12 @@ quad0 =
             (QuadLeaf Color.purple)
             QuadEmpty
         )
+
+
+type alias PointerData =
+    { isInside : Bool
+    , isPressed : Bool
+    }
 
 
 
@@ -64,17 +69,17 @@ type alias Model =
     , size : Int
     , color : Color
     , colorpalette : List Color
-    , isDrawing : Bool
+    , canvasPointer : PointerData
     }
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
     ( { canvas = QuadEmpty
-      , scale = 3
+      , scale = 4
       , isRulerVisible = True
       , size = 512
-      , color = Color.rgb 255 219 0
+      , color = Color.black
       , colorpalette =
             [ Color.black, Color.white ]
                 ++ List.Extra.initialize 22
@@ -82,7 +87,7 @@ init _ =
                         Color.Oklch.oklch 0.7 0.4 (10 / (toFloat x + 1))
                             |> Color.Oklch.toColor
                     )
-      , isDrawing = False
+      , canvasPointer = { isInside = False, isPressed = False }
       }
     , Cmd.none
     )
@@ -100,8 +105,14 @@ type Msg
     | ChangeColor Color
     | RulerVisibleToggle
     | ClearCanvas
-    | AllowDraw Bool
     | TryDraw Point
+    | CanvasPointerInside Bool Pointer.Event
+    | CanvasPointerPressed Bool Pointer.Event
+
+
+cmd : msg -> Cmd msg
+cmd m =
+    Task.perform (always m) (Task.succeed ())
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -125,11 +136,42 @@ update msg model =
         RulerVisibleToggle ->
             ( { model | isRulerVisible = not model.isRulerVisible }, Cmd.none )
 
-        AllowDraw isAllowed ->
-            ( { model | isDrawing = isAllowed }, Cmd.none )
+        CanvasPointerInside bool _ ->
+            let
+                canvasPointer =
+                    model.canvasPointer
+
+                newCanvasPointer =
+                    { canvasPointer | isInside = bool }
+            in
+            ( { model | canvasPointer = newCanvasPointer }, Cmd.none )
+
+        CanvasPointerPressed bool event ->
+            let
+                canvasPointer =
+                    model.canvasPointer
+
+                newCanvasPointer =
+                    { canvasPointer | isPressed = bool }
+            in
+            if bool then
+                let
+                    ( x, y ) =
+                        event.pointer.offsetPos
+                in
+                ( { model | canvasPointer = newCanvasPointer }
+                , TryDraw
+                    { x = ceiling x
+                    , y = ceiling y
+                    }
+                    |> cmd
+                )
+
+            else
+                ( { model | canvasPointer = newCanvasPointer }, Cmd.none )
 
         TryDraw { x, y } ->
-            if model.isDrawing then
+            if model.canvasPointer.isInside && model.canvasPointer.isPressed then
                 ( { model
                     | canvas =
                         insertAtCoord model.color
@@ -147,7 +189,7 @@ update msg model =
 
         Log ( tag, value ) ->
             let
-                l =
+                _ =
                     log tag value
             in
             ( model, Cmd.none )
@@ -161,11 +203,10 @@ update msg model =
 
 
 -- SUBSCRIPTIONS
-
-
-decodePoint : JD.Decoder Point
-decodePoint =
-    JD.map2 Point (JD.field "x" JD.int) (JD.field "y" JD.int)
+--
+--decodePoint : JD.Decoder Point
+--decodePoint =
+--    JD.map2 Point (JD.field "x" JD.int) (JD.field "y" JD.int)
 
 
 subscriptions : Model -> Sub Msg
@@ -191,6 +232,9 @@ viewModelDebug model =
 
 viewRuler scale maxSize isVisible =
     let
+        colorStr =
+            "#EEE"
+
         halfThickness =
             1
 
@@ -207,11 +251,10 @@ viewRuler scale maxSize isVisible =
         , style "height" (maxSizeStr ++ "px")
         , id "canvasRuler"
         , style "touch-action" "none"
-        , Pointer.onDown
-            (\_ ->
-                AllowDraw True
-            )
-        , Pointer.onUp (\_ -> AllowDraw False)
+        , Pointer.onDown (CanvasPointerPressed True)
+        , Pointer.onUp (CanvasPointerPressed False)
+        , Pointer.onEnter (CanvasPointerInside True)
+        , Pointer.onLeave (CanvasPointerInside False)
         , Pointer.onMove
             (\event ->
                 let
@@ -242,7 +285,7 @@ viewRuler scale maxSize isVisible =
                     ]
                     [ rect
                         [ fill "none"
-                        , stroke "#333"
+                        , stroke colorStr
                         , strokeWidth (String.fromFloat halfThickness)
                         , width sizeStr
                         , height sizeStr
@@ -260,7 +303,7 @@ viewRuler scale maxSize isVisible =
                 []
             , rect
                 [ fill "none"
-                , stroke "#333"
+                , stroke colorStr
                 , strokeWidth (String.fromFloat (halfThickness * 2))
                 , width maxSizeStr
                 , height maxSizeStr
