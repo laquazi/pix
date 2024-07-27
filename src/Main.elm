@@ -1,4 +1,7 @@
-port module Main exposing (..)
+--port module Main exposing (..)
+
+
+module Main exposing (..)
 
 import Browser
 import Color exposing (Color)
@@ -9,6 +12,7 @@ import Debug exposing (log)
 import Html exposing (Html, button, div, table, tbody, td, text, tr)
 import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
+import Html.Events.Extra.Pointer as Pointer
 import Json.Decode as JD
 import Json.Encode as JE
 import List.Extra
@@ -16,9 +20,11 @@ import Quadtree exposing (..)
 import Result.Extra
 import Svg exposing (circle, defs, path, pattern, rect, svg)
 import Svg.Attributes exposing (cx, cy, d, fill, height, id, patternUnits, r, rx, ry, shapeRendering, stroke, strokeWidth, viewBox, width, x, y)
+import Task
 
 
-port canvasRulerPressed : (JE.Value -> msg) -> Sub msg
+
+--port canvasRulerPressed : (JE.Value -> msg) -> Sub msg
 
 
 quad0 =
@@ -58,6 +64,7 @@ type alias Model =
     , size : Int
     , color : Color
     , colorpalette : List Color
+    , isDrawing : Bool
     }
 
 
@@ -69,11 +76,13 @@ init _ =
       , size = 512
       , color = Color.rgb 255 219 0
       , colorpalette =
-            List.Extra.initialize 24
-                (\x ->
-                    Color.Oklch.oklch 0.7 0.4 (10 / (toFloat x + 1))
-                        |> Color.Oklch.toColor
-                )
+            [ Color.black, Color.white ]
+                ++ List.Extra.initialize 22
+                    (\x ->
+                        Color.Oklch.oklch 0.7 0.4 (10 / (toFloat x + 1))
+                            |> Color.Oklch.toColor
+                    )
+      , isDrawing = False
       }
     , Cmd.none
     )
@@ -85,12 +94,14 @@ init _ =
 
 type Msg
     = Reset
+    | Noop
+    | Log ( String, String )
     | ChangeScale Int
     | ChangeColor Color
     | RulerVisibleToggle
-    | Draw Point
-    | Log ( String, String )
     | ClearCanvas
+    | AllowDraw Bool
+    | TryDraw Point
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -114,18 +125,25 @@ update msg model =
         RulerVisibleToggle ->
             ( { model | isRulerVisible = not model.isRulerVisible }, Cmd.none )
 
-        Draw { x, y } ->
-            ( { model
-                | canvas =
-                    insertAtCoord model.color
-                        { x = (x * (2 ^ model.scale)) // model.size
-                        , y = (y * (2 ^ model.scale)) // model.size
-                        }
-                        model.scale
-                        model.canvas
-              }
-            , Cmd.none
-            )
+        AllowDraw isAllowed ->
+            ( { model | isDrawing = isAllowed }, Cmd.none )
+
+        TryDraw { x, y } ->
+            if model.isDrawing then
+                ( { model
+                    | canvas =
+                        insertAtCoord model.color
+                            { x = (x * (2 ^ model.scale)) // model.size
+                            , y = (y * (2 ^ model.scale)) // model.size
+                            }
+                            model.scale
+                            model.canvas
+                  }
+                , Cmd.none
+                )
+
+            else
+                ( model, Cmd.none )
 
         Log ( tag, value ) ->
             let
@@ -136,6 +154,9 @@ update msg model =
 
         ClearCanvas ->
             ( { model | canvas = QuadEmpty }, Cmd.none )
+
+        Noop ->
+            ( model, Cmd.none )
 
 
 
@@ -149,17 +170,18 @@ decodePoint =
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    canvasRulerPressed
-        (\jsPoint ->
-            jsPoint
-                |> JD.decodeValue decodePoint
-                |> Result.Extra.unpack
-                    (\error -> Log ( "Error", JD.errorToString error ))
-                    Draw
-        )
+    Sub.none
 
 
 
+--canvasRulerPressed
+--    (\jsPoint ->
+--        jsPoint
+--            |> JD.decodeValue decodePoint
+--            |> Result.Extra.unpack
+--                (\error -> Log ( "Error", JD.errorToString error ))
+--                Draw
+--    )
 -- VIEW
 
 
@@ -184,6 +206,23 @@ viewRuler scale maxSize isVisible =
         , style "width" (maxSizeStr ++ "px")
         , style "height" (maxSizeStr ++ "px")
         , id "canvasRuler"
+        , style "touch-action" "none"
+        , Pointer.onDown
+            (\_ ->
+                AllowDraw True
+            )
+        , Pointer.onUp (\_ -> AllowDraw False)
+        , Pointer.onMove
+            (\event ->
+                let
+                    ( x, y ) =
+                        event.pointer.offsetPos
+                in
+                TryDraw
+                    { x = ceiling x
+                    , y = ceiling y
+                    }
+            )
         , if isVisible then
             style "opacity" "100%"
 

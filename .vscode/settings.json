@@ -9,11 +9,13 @@
     "elm.js": true,
     "elm-stuff": true,
     "elm-watch.json": true,
-    ".github": true
+    ".github": true,
+    ".idea": true
   },
   "editor.formatOnSave": true,
   "cSpell.words": [
     "mdgriffith",
+    "mpizenberg",
     "myapp",
     "oklch",
     "pointf",

@@ -18,9 +18,12 @@
             "elm-community/maybe-extra": "5.3.0",
             "elm-community/result-extra": "2.4.0",
             "mdgriffith/elm-ui": "1.1.8",
-            "miniBill/elm-oklch": "1.0.0"
+            "miniBill/elm-oklch": "1.0.0",
+            "mpizenberg/elm-pointer-events": "5.0.0"
         },
         "indirect": {
+            "elm/bytes": "1.0.8",
+            "elm/file": "1.0.5",
             "elm/url": "1.0.0",
             "elm/virtual-dom": "1.0.3"
         }
