@@ -46,6 +46,52 @@ type alias PointerData =
     }
 
 
+type alias CanvasLayer =
+    { data : Quadtree Color
+    , blendingMode : Maybe (Color -> Color -> Color)
+
+    --, isVisible : Bool
+    }
+
+
+{-| NOTE: (from top to bottom)
+-}
+type alias Canvas =
+    { layers : List CanvasLayer
+    , selectedLayerIndex : Int
+    }
+
+
+colorBlendingNormal : Color -> Color -> Color
+colorBlendingNormal a _ =
+    a
+
+
+canvasMergeLayers : Canvas -> Quadtree Color
+canvasMergeLayers canvas =
+    canvas.layers
+        |> List.foldr
+            (\layer ( accTree, accBlend ) ->
+                ( Quadtree.merge accBlend accTree layer.data
+                , layer.blendingMode |> Maybe.withDefault colorBlendingNormal
+                )
+            )
+            ( QuadEmpty, colorBlendingNormal )
+        |> Tuple.first
+
+
+canvasLayerEmpty : CanvasLayer
+canvasLayerEmpty =
+    { data = QuadEmpty, blendingMode = Nothing }
+
+
+canvasEmpty : Canvas
+canvasEmpty =
+    { layers = [ canvasLayerEmpty ]
+    , selectedLayerIndex = 0
+    }
+
+
 
 -- MAIN
 
@@ -64,7 +110,7 @@ main =
 
 
 type alias Model =
-    { canvas : Quadtree Color
+    { canvas : Canvas
     , scale : Int
     , isRulerVisible : Bool
     , size : Int
@@ -76,7 +122,13 @@ type alias Model =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { canvas = QuadEmpty
+    ( { canvas =
+            { selectedLayerIndex = 1
+            , layers =
+                [ { canvasLayerEmpty | data = quad0 }
+                , canvasLayerEmpty
+                ]
+            }
       , scale = 4
       , isRulerVisible = True
       , size = 512
@@ -109,7 +161,7 @@ type Msg
     | TryDraw Point
     | CanvasPointerInside Bool Pointer.Event
     | CanvasPointerPressed Bool Pointer.Event
-    | MergeTest
+    | ChangeLayer Int
 
 
 cmd : msg -> Cmd msg
@@ -174,14 +226,38 @@ update msg model =
 
         TryDraw { x, y } ->
             if model.canvasPointer.isInside && model.canvasPointer.isPressed then
+                let
+                    newCanvas =
+                        model.canvas.layers
+                            |> List.Extra.getAt model.canvas.selectedLayerIndex
+                            |> Maybe.map
+                                (\layer ->
+                                    { data =
+                                        insertAtCoord model.color
+                                            { x = (x * (2 ^ model.scale)) // model.size
+                                            , y = (y * (2 ^ model.scale)) // model.size
+                                            }
+                                            model.scale
+                                            layer.data
+                                    , blendingMode = layer.blendingMode
+                                    }
+                                )
+                            |> Maybe.map
+                                (\newLayer ->
+                                    model.canvas.layers
+                                        |> List.Extra.setAt model.canvas.selectedLayerIndex newLayer
+                                )
+                            |> Maybe.map
+                                (\newLayers ->
+                                    { layers = newLayers
+                                    , selectedLayerIndex = model.canvas.selectedLayerIndex
+                                    }
+                                )
+                            |> Maybe.withDefault model.canvas
+                in
                 ( { model
                     | canvas =
-                        insertAtCoord model.color
-                            { x = (x * (2 ^ model.scale)) // model.size
-                            , y = (y * (2 ^ model.scale)) // model.size
-                            }
-                            model.scale
-                            model.canvas
+                        newCanvas
                   }
                 , Cmd.none
                 )
@@ -197,15 +273,19 @@ update msg model =
             ( model, Cmd.none )
 
         ClearCanvas ->
-            ( { model | canvas = QuadEmpty }, Cmd.none )
+            -- TODO: clear layer instead
+            ( { model | canvas = canvasEmpty }, Cmd.none )
 
         Noop ->
             ( model, Cmd.none )
 
-        MergeTest ->
+        ChangeLayer index ->
             let
+                canvas =
+                    model.canvas
+
                 newCanvas =
-                    Quadtree.merge (\a b -> Color.Blending.multiply a b) quad0 model.canvas
+                    { canvas | selectedLayerIndex = index }
             in
             ( { model | canvas = newCanvas }, Cmd.none )
 
@@ -323,13 +403,17 @@ viewRuler scale maxSize isVisible =
         ]
 
 
+{-| TODO: draw layers separately instead of merging?
+-}
 viewCanvas model =
     div
         [ style "position" "relative"
         , style "margin" "10px"
         ]
         [ viewRuler (toFloat model.scale) (toFloat model.size) model.isRulerVisible
-        , viewQuadtree model.canvas (toFloat model.size)
+        , model.canvas
+            |> canvasMergeLayers
+            |> viewQuadtree (toFloat model.size)
         ]
 
 
@@ -350,7 +434,7 @@ viewColorpalette model =
         , style "display" "flex"
         , style "flex-wrap" "wrap"
         ]
-        (model.colorpalette |> List.map (\x -> viewColorpaletteColor x))
+        (model.colorpalette |> List.map viewColorpaletteColor)
 
 
 viewSelectedColor model =
@@ -370,8 +454,32 @@ viewMsgButtons model =
         , button [ onClick (ChangeScale (model.scale + 1)) ] [ text "+ Scale" ]
         , button [ onClick (ChangeScale (model.scale - 1)) ] [ text "- Scale" ]
         , button [ onClick RulerVisibleToggle ] [ text "Toggle Ruler" ]
-        , button [ onClick MergeTest ] [ text "MergeTest" ]
         ]
+
+
+viewLayer selectedLayerIndex i layer =
+    div
+        [ style "width" "40px"
+        , style "height" "40px"
+        , style "background-color" (Color.toCssString Color.charcoal)
+        , onClick (ChangeLayer i)
+        , if selectedLayerIndex == i then
+            style "border" "1px solid #EB6"
+
+          else
+            style "border" "none"
+        ]
+        [ layer.data |> viewQuadtree (toFloat 40) ]
+
+
+viewLayers model =
+    div
+        [ style "margin" "10px"
+        , style "display" "flex"
+        , style "flex-wrap" "wrap"
+        , style "flex-direction" "column"
+        ]
+        (model.canvas.layers |> List.indexedMap (viewLayer model.canvas.selectedLayerIndex))
 
 
 view : Model -> Html Msg
@@ -386,6 +494,7 @@ view model =
         , viewCanvas model
         , viewSelectedColor model
         , viewColorpalette model
+        , viewLayers model
 
         -- , viewModelDebug model
         ]

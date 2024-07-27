@@ -161,7 +161,7 @@ insertAtCoord newData ({ x, y } as coord) scale tree =
                     |> QuadNode
 
 
-viewQuadLeaf0 color n maxSize =
+viewQuadLeaf0 maxSize n color =
     let
         sizeStr =
             String.fromFloat (maxSize / (2 ^ n)) ++ "px"
@@ -174,31 +174,33 @@ viewQuadLeaf0 color n maxSize =
         [ text "\u{200B}" ]
 
 
-viewQuadtree0 x maxSize n =
+viewQuadtree0 maxSize n x =
     case x of
         QuadEmpty ->
-            viewQuadLeaf0 Color.white n maxSize
+            Color.white |> viewQuadLeaf0 maxSize n
 
         QuadLeaf color ->
-            viewQuadLeaf0 color n maxSize
+            color |> viewQuadLeaf0 maxSize n
 
         QuadNode quadrants ->
+            let
+                viewTd q =
+                    td [ style "padding" "0" ]
+                        [ quadrants
+                            |> getQuadrant q
+                            |> viewQuadtree0 maxSize (n + 1)
+                        ]
+            in
             table
                 [ style "border-collapse" "collapse"
                 , style "user-select" "none"
                 ]
                 [ tbody []
-                    [ tr []
-                        [ td [ style "padding" "0" ] [ viewQuadtree0 (getQuadrant TopLeft quadrants) maxSize (n + 1) ]
-                        , td [ style "padding" "0" ] [ viewQuadtree0 (getQuadrant TopRight quadrants) maxSize (n + 1) ]
-                        ]
-                    , tr []
-                        [ td [ style "padding" "0" ] [ viewQuadtree0 (getQuadrant BottomLeft quadrants) maxSize (n + 1) ]
-                        , td [ style "padding" "0" ] [ viewQuadtree0 (getQuadrant BottomRight quadrants) maxSize (n + 1) ]
-                        ]
+                    [ tr [] [ viewTd TopLeft, viewTd TopRight ]
+                    , tr [] [ viewTd BottomLeft, viewTd BottomRight ]
                     ]
                 ]
 
 
-viewQuadtree x maxSize =
-    viewQuadtree0 x maxSize 0
+viewQuadtree maxSize x =
+    viewQuadtree0 maxSize 0 x
