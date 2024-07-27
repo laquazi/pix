@@ -1,11 +1,9 @@
-module Quadtree exposing (Quadrant, Quadrants, Quadtree(..), coord2quadrant, getQuadrant, getQuadrantId, insertAtCoord, quadnode, repeatQuadtree, scale2halfMaxCoord, viewQuadtree)
+module Quadtree exposing (Quadrant, Quadrants, Quadtree(..), coord2quadrant, getQuadrant, getQuadrantId, insertAtCoord, merge, quadnode, repeatQuadtree, scale2halfMaxCoord, viewQuadtree)
 
 import Array exposing (Array)
 import Array.Extra
-import Browser
 import Color exposing (Color)
 import Common exposing (..)
-import Debug exposing (log)
 import Html exposing (Html, div, table, tbody, td, text, tr)
 import Html.Attributes exposing (style)
 
@@ -29,6 +27,28 @@ type Quadrant
 
 quadnode tl tr bl br =
     [ tl, tr, bl, br ] |> Array.fromList |> QuadNode
+
+
+merge : (a -> a -> a) -> Quadtree a -> Quadtree a -> Quadtree a
+merge f aTree bTree =
+    case ( aTree, bTree ) of
+        ( QuadEmpty, _ ) ->
+            bTree
+
+        ( _, QuadEmpty ) ->
+            aTree
+
+        ( QuadLeaf a, QuadLeaf b ) ->
+            QuadLeaf (f a b)
+
+        ( (QuadLeaf _) as a, _ ) ->
+            merge f (QuadNode (repeatQuadtree a)) bTree
+
+        ( _, (QuadLeaf _) as b ) ->
+            merge f aTree (QuadNode (repeatQuadtree b))
+
+        ( QuadNode a, QuadNode b ) ->
+            Array.Extra.map2 (merge f) a b |> QuadNode
 
 
 mapQuadrants : (Quadrant -> Quadtree a -> Quadtree b) -> Quadrants a -> Quadrants b
@@ -139,10 +159,6 @@ insertAtCoord newData ({ x, y } as coord) scale tree =
                     |> repeatQuadtree
                     |> setQuadrant quadrant newQuadrant
                     |> QuadNode
-
-
-
--- TODO: Merge
 
 
 viewQuadLeaf0 color n maxSize =

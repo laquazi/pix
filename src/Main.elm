@@ -5,6 +5,7 @@ module Main exposing (..)
 
 import Browser
 import Color exposing (Color)
+import Color.Blending
 import Color.Oklch
 import Common exposing (..)
 import Debug exposing (log)
@@ -108,6 +109,7 @@ type Msg
     | TryDraw Point
     | CanvasPointerInside Bool Pointer.Event
     | CanvasPointerPressed Bool Pointer.Event
+    | MergeTest
 
 
 cmd : msg -> Cmd msg
@@ -199,6 +201,13 @@ update msg model =
 
         Noop ->
             ( model, Cmd.none )
+
+        MergeTest ->
+            let
+                newCanvas =
+                    Quadtree.merge (\a b -> Color.Blending.multiply a b) quad0 model.canvas
+            in
+            ( { model | canvas = newCanvas }, Cmd.none )
 
 
 
@@ -361,6 +370,7 @@ viewMsgButtons model =
         , button [ onClick (ChangeScale (model.scale + 1)) ] [ text "+ Scale" ]
         , button [ onClick (ChangeScale (model.scale - 1)) ] [ text "- Scale" ]
         , button [ onClick RulerVisibleToggle ] [ text "Toggle Ruler" ]
+        , button [ onClick MergeTest ] [ text "MergeTest" ]
         ]
 
 
