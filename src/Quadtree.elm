@@ -174,10 +174,10 @@ viewQuadLeaf0 maxSize n color =
         [ text "\u{200B}" ]
 
 
-viewQuadtree0 maxSize n x =
+viewQuadtree0 maxSize n emptyColor x =
     case x of
         QuadEmpty ->
-            Color.white |> viewQuadLeaf0 maxSize n
+            emptyColor |> viewQuadLeaf0 maxSize n
 
         QuadLeaf color ->
             color |> viewQuadLeaf0 maxSize n
@@ -188,7 +188,7 @@ viewQuadtree0 maxSize n x =
                     td [ style "padding" "0" ]
                         [ quadrants
                             |> getQuadrant q
-                            |> viewQuadtree0 maxSize (n + 1)
+                            |> viewQuadtree0 maxSize (n + 1) emptyColor
                         ]
             in
             table
@@ -202,5 +202,5 @@ viewQuadtree0 maxSize n x =
                 ]
 
 
-viewQuadtree maxSize x =
-    viewQuadtree0 maxSize 0 x
+viewQuadtree maxSize emptyColor x =
+    viewQuadtree0 maxSize 0 emptyColor x

@@ -27,6 +27,12 @@ import Task
 --port canvasRulerPressed : (JE.Value -> msg) -> Sub msg
 
 
+config =
+    { backgroundColor = Color.rgb255 238 238 238
+    , rulerColor = Color.rgb255 238 238 238
+    }
+
+
 quad0 =
     quadnode
         (QuadLeaf Color.red)
@@ -125,7 +131,7 @@ init _ =
     ( { canvas =
             { selectedLayerIndex = 1
             , layers =
-                [ { canvasLayerEmpty | data = quad0 }
+                [ { canvasLayerEmpty | data = QuadLeaf Color.white }
                 , canvasLayerEmpty
                 ]
             }
@@ -321,9 +327,6 @@ viewModelDebug model =
 
 viewRuler scale maxSize isVisible =
     let
-        colorStr =
-            "#EEE"
-
         halfThickness =
             1
 
@@ -374,7 +377,7 @@ viewRuler scale maxSize isVisible =
                     ]
                     [ rect
                         [ fill "none"
-                        , stroke colorStr
+                        , stroke (Color.toCssString config.rulerColor)
                         , strokeWidth (String.fromFloat halfThickness)
                         , width sizeStr
                         , height sizeStr
@@ -392,7 +395,7 @@ viewRuler scale maxSize isVisible =
                 []
             , rect
                 [ fill "none"
-                , stroke colorStr
+                , stroke (Color.toCssString config.rulerColor)
                 , strokeWidth (String.fromFloat (halfThickness * 2))
                 , width maxSizeStr
                 , height maxSizeStr
@@ -413,7 +416,7 @@ viewCanvas model =
         [ viewRuler (toFloat model.scale) (toFloat model.size) model.isRulerVisible
         , model.canvas
             |> canvasMergeLayers
-            |> viewQuadtree (toFloat model.size)
+            |> viewQuadtree (toFloat model.size) config.backgroundColor
         ]
 
 
@@ -459,9 +462,8 @@ viewMsgButtons model =
 
 viewLayer selectedLayerIndex i layer =
     div
-        [ style "width" "40px"
-        , style "height" "40px"
-        , style "background-color" (Color.toCssString Color.charcoal)
+        [ style "width" "80px"
+        , style "height" "80px"
         , onClick (ChangeLayer i)
         , if selectedLayerIndex == i then
             style "border" "1px solid #EB6"
@@ -469,7 +471,7 @@ viewLayer selectedLayerIndex i layer =
           else
             style "border" "none"
         ]
-        [ layer.data |> viewQuadtree (toFloat 40) ]
+        [ layer.data |> viewQuadtree (toFloat 80) config.backgroundColor ]
 
 
 viewLayers model =
@@ -486,7 +488,7 @@ view : Model -> Html Msg
 view model =
     div
         [ style "position" "absolute"
-        , style "background-color" "#EEE"
+        , style "background-color" (Color.toCssString config.backgroundColor)
         , style "width" "100%"
         , style "height" "100%"
         ]
