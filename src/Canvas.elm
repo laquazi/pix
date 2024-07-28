@@ -2,6 +2,7 @@ module Canvas exposing (..)
 
 import Color exposing (Color)
 import Common exposing (colorBlendingNormal)
+import List.Extra
 import Quadtree exposing (Quadtree(..))
 
 
@@ -48,3 +49,16 @@ canvasEmpty =
     { layers = [ layerEmpty ]
     , selectedLayerIndex = 0
     }
+
+
+updateSelectedLayer f canvas =
+    canvas.layers
+        |> List.Extra.getAt canvas.selectedLayerIndex
+        |> Maybe.map f
+        |> Maybe.map
+            (\newLayer ->
+                canvas.layers
+                    |> List.Extra.setAt canvas.selectedLayerIndex newLayer
+            )
+        |> Maybe.map (\newLayers -> { canvas | layers = newLayers })
+        |> Maybe.withDefault canvas

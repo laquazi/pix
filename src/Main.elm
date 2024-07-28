@@ -4,7 +4,7 @@
 module Main exposing (..)
 
 import Browser
-import Canvas exposing (Canvas, CanvasLayer, canvasEmpty, layerEmpty)
+import Canvas exposing (Canvas, CanvasLayer, layerEmpty)
 import Color exposing (Color)
 import Color.Blending
 import Color.Oklch
@@ -28,8 +28,14 @@ import Svg.Attributes exposing (fill, height, id, patternUnits, shapeRendering, 
 
 
 config =
-    { backgroundColor = Color.rgb255 238 238 238
-    , rulerColor = Color.rgb255 238 238 238
+    { color =
+        { background = Color.rgb255 238 238 238
+        , ruler = Color.rgb255 238 238 238
+        }
+    , zIndex =
+        { canvas = 0
+        , floatingElement = 4
+        }
     }
 
 
@@ -110,9 +116,8 @@ tryDraw { x, y } model =
     if model.canvasPointer.isInside && model.canvasPointer.isPressed then
         let
             newCanvas =
-                model.canvas.layers
-                    |> List.Extra.getAt model.canvas.selectedLayerIndex
-                    |> Maybe.map
+                model.canvas
+                    |> Canvas.updateSelectedLayer
                         (\layer ->
                             { layer
                                 | data =
@@ -124,25 +129,8 @@ tryDraw { x, y } model =
                                         layer.data
                             }
                         )
-                    |> Maybe.map
-                        (\newLayer ->
-                            model.canvas.layers
-                                |> List.Extra.setAt model.canvas.selectedLayerIndex newLayer
-                        )
-                    |> Maybe.map
-                        (\newLayers ->
-                            { layers = newLayers
-                            , selectedLayerIndex = model.canvas.selectedLayerIndex
-                            }
-                        )
-                    |> Maybe.withDefault model.canvas
         in
-        ( { model
-            | canvas =
-                newCanvas
-          }
-        , Cmd.none
-        )
+        ( { model | canvas = newCanvas }, Cmd.none )
 
     else
         ( model, Cmd.none )
@@ -159,7 +147,7 @@ type Msg
     | ChangeScale Int
     | ChangeColor Color
     | RulerVisibleToggle
-    | ClearCanvas
+    | CanvasClearLayer
     | TryDraw Point
     | CanvasPointerInside Bool Pointer.Event
     | CanvasPointerPressed Bool Pointer.Event
@@ -231,9 +219,13 @@ update msg model =
             in
             ( model, Cmd.none )
 
-        ClearCanvas ->
-            -- TODO: clear layer instead
-            ( { model | canvas = canvasEmpty }, Cmd.none )
+        CanvasClearLayer ->
+            let
+                newCanvas =
+                    model.canvas
+                        |> Canvas.updateSelectedLayer (\layer -> { layer | data = QuadEmpty })
+            in
+            ( { model | canvas = newCanvas }, Cmd.none )
 
         Noop ->
             ( model, Cmd.none )
@@ -291,7 +283,7 @@ viewRuler scale maxSize isVisible =
     in
     div
         [ style "position" "absolute"
-        , style "z-index" "1"
+        , style "z-index" (String.fromFloat (config.zIndex.canvas + 1))
         , style "width" (maxSizeStr ++ "px")
         , style "height" (maxSizeStr ++ "px")
         , id "canvasRuler"
@@ -330,7 +322,7 @@ viewRuler scale maxSize isVisible =
                     ]
                     [ rect
                         [ fill "none"
-                        , stroke (Color.toCssString config.rulerColor)
+                        , stroke (Color.toCssString config.color.ruler)
                         , strokeWidth (String.fromFloat halfThickness)
                         , width sizeStr
                         , height sizeStr
@@ -348,7 +340,7 @@ viewRuler scale maxSize isVisible =
                 []
             , rect
                 [ fill "none"
-                , stroke (Color.toCssString config.rulerColor)
+                , stroke (Color.toCssString config.color.ruler)
                 , strokeWidth (String.fromFloat (halfThickness * 2))
                 , width maxSizeStr
                 , height maxSizeStr
@@ -406,7 +398,7 @@ viewSelectedColor model =
 viewMsgButtons model =
     div [ style "margin" "10px" ]
         [ button [ onClick Reset ] [ text "Reset" ]
-        , button [ onClick ClearCanvas ] [ text "Clear" ]
+        , button [ onClick CanvasClearLayer ] [ text "Clear" ]
         , button [ onClick (ChangeScale (model.scale + 1)) ] [ text "+ Scale" ]
         , button [ onClick (ChangeScale (model.scale - 1)) ] [ text "- Scale" ]
         , button [ onClick RulerVisibleToggle ] [ text "Toggle Ruler" ]
@@ -420,57 +412,25 @@ viewLayer selectedLayerIndex i layer =
     in
     div
         [ style "width" (String.fromFloat size ++ "px")
-        , style "height" "80px"
+        , style "height" (String.fromFloat size ++ "px")
         , onClick (ChangeLayer i)
+        , style "box-sizing" "border-box"
         , if selectedLayerIndex == i then
             style "border" "1px solid #EB6"
 
           else
             style "border" "none"
         ]
-        [ layer.data |> viewQuadtree (toFloat 80) config.backgroundColor ]
+        [ layer.data
+            |> viewQuadtree
+                (if selectedLayerIndex == i then
+                    toFloat size - 2
 
-
-
---viewLayer selectedLayerIndex i layer =
---    let
---        size =
---            80
---
---        border =
---            div [ style "z-index" "1" ]
---                [ svg
---                    [ width "100%"
---                    , height "100%"
---                    ]
---                    [ rect
---                        [ fill "#F88"
---                        , stroke "#EB6"
---                        , strokeWidth (String.fromFloat 1)
---                        , shapeRendering "crispEdges"
---                        ]
---                        []
---                    ]
---                ]
---    in
---    div
---        [ style "width" (String.fromFloat size ++ "px")
---        , style "height" (String.fromFloat size ++ "px")
---        , onClick (ChangeLayer i)
---        ]
---        ((if selectedLayerIndex == i then
---            [ border ]
---
---          else
---            []
---         )
---            ++ [ div [ style "z-index" "0" ]
---                    [ layer.data |> viewQuadtree (toFloat 80) config.backgroundColor ]
---               ]
---        )
---
---
---
+                 else
+                    toFloat size
+                )
+                config.color.background
+        ]
 
 
 viewLayers model =
@@ -487,7 +447,7 @@ view : Model -> Html Msg
 view model =
     div
         [ style "position" "absolute"
-        , style "background-color" (Color.toCssString config.backgroundColor)
+        , style "background-color" (Color.toCssString config.color.background)
         , style "width" "100%"
         , style "height" "100%"
         ]
