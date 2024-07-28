@@ -3,6 +3,7 @@ module Canvas exposing (..)
 import Color exposing (Color)
 import Common exposing (colorBlendingNormal)
 import List.Extra
+import Parser exposing ((|.), (|=), Parser)
 import Quadtree exposing (Quadtree(..))
 
 
@@ -51,22 +52,26 @@ canvasEmpty =
     }
 
 
-{-| TODO:
--}
+parserLayerName : Parser Int
+parserLayerName =
+    Parser.succeed identity
+        |. Parser.keyword "Layer"
+        |. Parser.spaces
+        |= Parser.int
+
+
 addNewLayer : Canvas -> Canvas
 addNewLayer canvas =
     let
         index =
-            69420
+            canvas.layers
+                |> List.filterMap
+                    (\layer -> Parser.run parserLayerName layer.name |> Result.toMaybe)
+                |> List.maximum
+                |> Maybe.withDefault 0
 
-        --canvas.layers
-        --    |> List.filterMap
-        --        (\layer ->
-        --            if layer.name |> String.startsWith "Layer " then
-        --                layer.name
-        --        )
         newLayer =
-            { layerEmpty | name = String.fromInt index }
+            { layerEmpty | name = "Layer " ++ String.fromInt (index + 1) }
     in
     { canvas | layers = canvas.layers ++ [ newLayer ] }
 

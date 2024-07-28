@@ -27,6 +27,8 @@ import Svg.Attributes exposing (fill, height, id, patternUnits, shapeRendering, 
 --port canvasRulerPressed : (JE.Value -> msg) -> Sub msg
 
 
+{-| TODO: add background for non-transparent things and use it for layer text among other things
+-}
 config =
     { color =
         { background = Color.rgb255 218 218 218
@@ -97,8 +99,8 @@ init _ =
     ( { canvas =
             { selectedLayerIndex = 1
             , layers =
-                [ { layerEmpty | data = QuadLeaf Color.white }
-                , layerEmpty
+                [ { layerEmpty | data = QuadLeaf Color.white, name = "Background" }
+                , { layerEmpty | name = "Layer 1" }
                 ]
             }
       , scale = 4
@@ -383,15 +385,17 @@ viewRuler scale maxSize isVisible =
         ]
 
 
-{-| TODO: draw layers separately instead of merging?
--}
 viewCanvas model =
+    let
+        canvas =
+            model.canvas
+    in
     div
         [ style "position" "relative"
         , style "margin" (px config.defaultMargin)
         ]
         [ viewRuler (toFloat model.scale) (toFloat model.size) model.isRulerVisible
-        , model.canvas
+        , { canvas | layers = canvas.layers |> List.filter .isVisible }
             |> Canvas.mergeLayers
             |> viewQuadtree (toFloat model.size) colorTransparent
         ]
@@ -439,29 +443,51 @@ viewMsgButtons model =
 
 viewLayer selectedLayerIndex i layer =
     let
-        size =
+        previewSize =
             80
+
+        selectedBorder =
+            2
     in
     div
-        [ style "width" (px size)
-        , style "height" (px size)
-        , onClick (ChangeSelectedLayer i)
-        , style "box-sizing" "border-box"
-        , if selectedLayerIndex == i then
-            style "border" "1px solid #EB6"
+        [ style "display" "flex" ]
+        [ div
+            [ style "width" (px previewSize)
+            , style "height" (px previewSize)
+            , onClick (ChangeSelectedLayer i)
+            , style "box-sizing" "border-box"
+            , if selectedLayerIndex == i then
+                style "border" (px selectedBorder ++ " solid #D58F17")
 
-          else
-            style "border" "none"
-        ]
-        [ layer.data
-            |> viewQuadtree
-                (if selectedLayerIndex == i then
-                    toFloat size - 2
+              else
+                style "border" "none"
+            ]
+            [ layer.data
+                |> viewQuadtree
+                    (if selectedLayerIndex == i then
+                        toFloat previewSize - (selectedBorder * 2)
 
-                 else
-                    toFloat size
-                )
-                config.color.background
+                     else
+                        toFloat previewSize
+                    )
+                    config.color.background
+            ]
+        , div
+            [ style "overflow" "auto"
+            , style "width" (previewSize * 1.5 |> px)
+            , style "display" "flex"
+            , style "align-items" "center"
+            , style "box-sizing" "border-box"
+            , style "padding-left" "6px"
+            ]
+            [ text layer.name ]
+        , button [ onClick (ToggleLayerVisibility i) ]
+            [ if layer.isVisible then
+                text "👁"
+
+              else
+                text "‿"
+            ]
         ]
 
 
