@@ -29,13 +29,14 @@ import Svg.Attributes exposing (fill, height, id, patternUnits, shapeRendering, 
 
 config =
     { color =
-        { background = Color.rgb255 238 238 238
-        , ruler = Color.rgb255 238 238 238
+        { background = Color.rgb255 218 218 218
+        , ruler = Color.rgb255 218 218 218
         }
     , zIndex =
         { canvas = 0
         , floatingElement = 4
         }
+    , defaultMargin = 10
     }
 
 
@@ -56,6 +57,11 @@ type alias PointerData =
     { isInside : Bool
     , isPressed : Bool
     }
+
+
+px : Float -> String
+px x =
+    String.fromFloat x ++ "px"
 
 
 
@@ -151,7 +157,10 @@ type Msg
     | TryDraw Point
     | CanvasPointerInside Bool Pointer.Event
     | CanvasPointerPressed Bool Pointer.Event
-    | ChangeLayer Int
+    | ChangeSelectedLayer Int
+    | ToggleLayerVisibility Int
+    | AddNewLayer
+    | RemoveSelectedLayer
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -230,13 +239,39 @@ update msg model =
         Noop ->
             ( model, Cmd.none )
 
-        ChangeLayer index ->
+        ChangeSelectedLayer index ->
             let
                 canvas =
                     model.canvas
 
                 newCanvas =
                     { canvas | selectedLayerIndex = index }
+            in
+            ( { model | canvas = newCanvas }, Cmd.none )
+
+        ToggleLayerVisibility index ->
+            let
+                newCanvas =
+                    model.canvas
+                        |> Canvas.updateLayer index (\layer -> { layer | isVisible = not layer.isVisible })
+            in
+            ( { model | canvas = newCanvas }, Cmd.none )
+
+        AddNewLayer ->
+            let
+                newCanvas =
+                    model.canvas
+                        |> Canvas.addNewLayer
+            in
+            ( { model | canvas = newCanvas }
+            , ChangeSelectedLayer (List.length model.canvas.layers) |> cmd
+            )
+
+        RemoveSelectedLayer ->
+            let
+                newCanvas =
+                    model.canvas
+                        |> Canvas.removeSelectedLayer
             in
             ( { model | canvas = newCanvas }, Cmd.none )
 
@@ -267,7 +302,7 @@ subscriptions _ =
 
 
 viewModelDebug model =
-    div [ style "margin" "10px" ] [ text (Debug.toString model) ]
+    div [ style "margin" (px config.defaultMargin) ] [ text (Debug.toString model) ]
 
 
 viewRuler scale maxSize isVisible =
@@ -275,17 +310,14 @@ viewRuler scale maxSize isVisible =
         halfThickness =
             1
 
-        maxSizeStr =
-            String.fromFloat maxSize
-
         sizeStr =
             String.fromFloat (maxSize / (2 ^ scale))
     in
     div
         [ style "position" "absolute"
         , style "z-index" (String.fromFloat (config.zIndex.canvas + 1))
-        , style "width" (maxSizeStr ++ "px")
-        , style "height" (maxSizeStr ++ "px")
+        , style "width" (px maxSize)
+        , style "height" (px maxSize)
         , id "canvasRuler"
         , style "touch-action" "none"
         , Pointer.onDown (CanvasPointerPressed True)
@@ -342,8 +374,8 @@ viewRuler scale maxSize isVisible =
                 [ fill "none"
                 , stroke (Color.toCssString config.color.ruler)
                 , strokeWidth (String.fromFloat (halfThickness * 2))
-                , width maxSizeStr
-                , height maxSizeStr
+                , width (px maxSize)
+                , height (px maxSize)
                 , shapeRendering "crispEdges"
                 ]
                 []
@@ -356,7 +388,7 @@ viewRuler scale maxSize isVisible =
 viewCanvas model =
     div
         [ style "position" "relative"
-        , style "margin" "10px"
+        , style "margin" (px config.defaultMargin)
         ]
         [ viewRuler (toFloat model.scale) (toFloat model.size) model.isRulerVisible
         , model.canvas
@@ -367,8 +399,8 @@ viewCanvas model =
 
 viewColorpaletteColor color =
     div
-        [ style "width" "40px"
-        , style "height" "40px"
+        [ style "width" (px 40)
+        , style "height" (px 40)
         , style "background-color" (Color.toCssString color)
         , onClick (ChangeColor color)
         ]
@@ -377,7 +409,7 @@ viewColorpaletteColor color =
 
 viewColorpalette model =
     div
-        [ style "margin" "10px"
+        [ style "margin" (px config.defaultMargin)
         , style "max-width" (String.fromInt model.size ++ "px")
         , style "display" "flex"
         , style "flex-wrap" "wrap"
@@ -387,16 +419,16 @@ viewColorpalette model =
 
 viewSelectedColor model =
     div
-        [ style "width" "80px"
-        , style "height" "80px"
+        [ style "width" (px 80)
+        , style "height" (px 80)
         , style "background-color" (Color.toCssString model.color)
-        , style "margin" "10px"
+        , style "margin" (px config.defaultMargin)
         ]
         [ text "\u{200B}" ]
 
 
 viewMsgButtons model =
-    div [ style "margin" "10px" ]
+    div [ style "margin" (px config.defaultMargin) ]
         [ button [ onClick Reset ] [ text "Reset" ]
         , button [ onClick CanvasClearLayer ] [ text "Clear" ]
         , button [ onClick (ChangeScale (model.scale + 1)) ] [ text "+ Scale" ]
@@ -411,9 +443,9 @@ viewLayer selectedLayerIndex i layer =
             80
     in
     div
-        [ style "width" (String.fromFloat size ++ "px")
-        , style "height" (String.fromFloat size ++ "px")
-        , onClick (ChangeLayer i)
+        [ style "width" (px size)
+        , style "height" (px size)
+        , onClick (ChangeSelectedLayer i)
         , style "box-sizing" "border-box"
         , if selectedLayerIndex == i then
             style "border" "1px solid #EB6"
@@ -435,12 +467,21 @@ viewLayer selectedLayerIndex i layer =
 
 viewLayers model =
     div
-        [ style "margin" "10px"
-        , style "display" "flex"
-        , style "flex-wrap" "wrap"
-        , style "flex-direction" "column"
+        [ style "margin" (String.fromFloat config.defaultMargin)
+        , style "position" "absolute"
+        , style "top" "20px"
+        , style "left" (px (toFloat model.size + config.defaultMargin * 2))
         ]
-        (model.canvas.layers |> List.indexedMap (viewLayer model.canvas.selectedLayerIndex))
+        [ button [ onClick AddNewLayer ] [ text "+" ]
+        , button [ onClick RemoveSelectedLayer ] [ text "-" ]
+        , div
+            [ style "display" "flex"
+            , style "flex-wrap" "wrap"
+            , style "flex-direction" "column-reverse"
+            , style "border" "1px solid #000"
+            ]
+            (model.canvas.layers |> List.indexedMap (viewLayer model.canvas.selectedLayerIndex))
+        ]
 
 
 view : Model -> Html Msg

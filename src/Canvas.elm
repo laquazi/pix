@@ -51,14 +51,58 @@ canvasEmpty =
     }
 
 
+{-| TODO:
+-}
+addNewLayer : Canvas -> Canvas
+addNewLayer canvas =
+    let
+        index =
+            69420
+
+        --canvas.layers
+        --    |> List.filterMap
+        --        (\layer ->
+        --            if layer.name |> String.startsWith "Layer " then
+        --                layer.name
+        --        )
+        newLayer =
+            { layerEmpty | name = String.fromInt index }
+    in
+    { canvas | layers = canvas.layers ++ [ newLayer ] }
+
+
+removeLayer : Int -> Canvas -> Canvas
+removeLayer index canvas =
+    let
+        newLayers =
+            canvas.layers
+                |> List.Extra.removeAt index
+
+        newLayersLength =
+            List.length newLayers
+    in
+    if index < newLayersLength then
+        { canvas | layers = newLayers }
+
+    else
+        { canvas | layers = newLayers, selectedLayerIndex = newLayersLength - 1 }
+
+
+updateLayer : Int -> (CanvasLayer -> CanvasLayer) -> Canvas -> Canvas
+updateLayer index f canvas =
+    let
+        newLayers =
+            canvas.layers
+                |> List.Extra.updateAt index f
+    in
+    { canvas | layers = newLayers }
+
+
+removeSelectedLayer : Canvas -> Canvas
+removeSelectedLayer canvas =
+    canvas |> removeLayer canvas.selectedLayerIndex
+
+
+updateSelectedLayer : (CanvasLayer -> CanvasLayer) -> Canvas -> Canvas
 updateSelectedLayer f canvas =
-    canvas.layers
-        |> List.Extra.getAt canvas.selectedLayerIndex
-        |> Maybe.map f
-        |> Maybe.map
-            (\newLayer ->
-                canvas.layers
-                    |> List.Extra.setAt canvas.selectedLayerIndex newLayer
-            )
-        |> Maybe.map (\newLayers -> { canvas | layers = newLayers })
-        |> Maybe.withDefault canvas
+    canvas |> updateLayer canvas.selectedLayerIndex f
