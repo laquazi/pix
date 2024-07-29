@@ -118,10 +118,10 @@ coord2quadrant { x, y } halfMaxCoord =
         BottomRight
 
 
-insertAtCoord : a -> Point -> Int -> Quadtree a -> Quadtree a
-insertAtCoord newData ({ x, y } as coord) scale tree =
+insertAtCoord : Quadtree a -> Point -> Int -> Quadtree a -> Quadtree a
+insertAtCoord insertTree ({ x, y } as coord) scale tree =
     if scale <= 0 then
-        QuadLeaf newData
+        insertTree
 
     else
         let
@@ -144,7 +144,7 @@ insertAtCoord newData ({ x, y } as coord) scale tree =
                         quadrants |> getQuadrant quadrant
 
                     newQuadrant =
-                        insertAtCoord newData newCoord newScale nodeQuadrant
+                        insertAtCoord insertTree newCoord newScale nodeQuadrant
                 in
                 quadrants
                     |> setQuadrant quadrant newQuadrant
@@ -153,7 +153,7 @@ insertAtCoord newData ({ x, y } as coord) scale tree =
             _ ->
                 let
                     newQuadrant =
-                        insertAtCoord newData newCoord newScale tree
+                        insertAtCoord insertTree newCoord newScale tree
                 in
                 tree
                     |> repeatQuadtree

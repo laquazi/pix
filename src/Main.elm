@@ -52,6 +52,11 @@ type alias PointerData =
     }
 
 
+type Tool
+    = Pencil
+    | Eraser
+
+
 px : Float -> String
 px x =
     String.fromFloat x ++ "px"
@@ -80,6 +85,7 @@ type alias Model =
     , isRulerVisible : Bool
     , size : Int
     , color : Color
+    , tool : Tool
     , colorpalette : List Color
     , canvasPointer : PointerData
     }
@@ -98,6 +104,7 @@ init _ =
       , isRulerVisible = True
       , size = 512
       , color = Color.black
+      , tool = Pencil
       , colorpalette =
             [ Color.black, Color.white ]
                 ++ List.Extra.initialize 22
@@ -111,31 +118,56 @@ init _ =
     )
 
 
-tryDraw { x, y } model =
-    if model.canvasPointer.isInside && model.canvasPointer.isPressed then
-        let
-            newCanvas =
-                model.canvas
-                    |> Canvas.updateSelectedLayer
-                        (\layer ->
-                            { layer
-                                | data =
-                                    insertAtCoord model.color
-                                        { x = (x * (2 ^ model.scale)) // model.size
-                                        , y = (y * (2 ^ model.scale)) // model.size
-                                        }
-                                        model.scale
-                                        layer.data
-                            }
-                        )
-        in
-        ( { model | canvas = newCanvas }, Cmd.none )
+coordVisual2Data : Point -> Int -> Int -> Point
+coordVisual2Data { x, y } scale size =
+    { x = (x * (2 ^ scale)) // size
+    , y = (y * (2 ^ scale)) // size
+    }
 
-    else
-        ( model, Cmd.none )
+
+doAtCoord : Point -> (Point -> Int -> Quadtree Color -> Quadtree Color) -> Model -> Canvas
+doAtCoord visualCoord f model =
+    model.canvas
+        |> Canvas.updateSelectedLayer
+            (\layer ->
+                { layer
+                    | data =
+                        f (coordVisual2Data visualCoord model.scale model.size) model.scale layer.data
+                }
+            )
 
 
 
+--tryUsePencil { x, y } model =
+--    model.canvas
+--        |> Canvas.updateSelectedLayer
+--            (\layer ->
+--                { layer
+--                    | data =
+--                        insertAtCoord (QuadLeaf model.color)
+--                            { x = (x * (2 ^ model.scale)) // model.size
+--                            , y = (y * (2 ^ model.scale)) // model.size
+--                            }
+--                            model.scale
+--                            layer.data
+--                }
+--            )
+--
+--
+--tryUseEraser { x, y } model =
+--    model.canvas
+--        |> Canvas.updateSelectedLayer
+--            (\layer ->
+--                { layer
+--                    | data =
+--                        insertAtCoord QuadEmpty
+--                            { x = (x * (2 ^ model.scale)) // model.size
+--                            , y = (y * (2 ^ model.scale)) // model.size
+--                            }
+--                            model.scale
+--                            layer.data
+--                }
+--            )
 -- UPDATE
 
 
@@ -147,13 +179,14 @@ type Msg
     | ChangeColor Color
     | RulerVisibleToggle
     | CanvasClearLayer
-    | TryDraw Point
     | CanvasPointerInside Bool Pointer.Event
     | CanvasPointerPressed Bool Pointer.Event
     | ChangeSelectedLayer Int
     | ToggleLayerVisibility Int
     | AddNewLayer
     | RemoveSelectedLayer
+    | TryUseTool Point
+    | ChangeTool Tool
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -173,6 +206,9 @@ update msg model =
 
         ChangeColor color ->
             ( { model | color = color }, Cmd.none )
+
+        ChangeTool tool ->
+            ( { model | tool = tool }, Cmd.none )
 
         RulerVisibleToggle ->
             ( { model | isRulerVisible = not model.isRulerVisible }, Cmd.none )
@@ -201,7 +237,7 @@ update msg model =
                         event.pointer.offsetPos
                 in
                 ( { model | canvasPointer = newCanvasPointer }
-                , TryDraw
+                , TryUseTool
                     { x = ceiling x
                     , y = ceiling y
                     }
@@ -211,8 +247,35 @@ update msg model =
             else
                 ( { model | canvasPointer = newCanvasPointer }, Cmd.none )
 
-        TryDraw canvasCoord ->
-            model |> tryDraw canvasCoord
+        TryUseTool visualCoord ->
+            if model.canvasPointer.isInside && model.canvasPointer.isPressed then
+                let
+                    newCanvas =
+                        case model.tool of
+                            Pencil ->
+                                model
+                                    |> doAtCoord visualCoord
+                                        (\coord scale tree ->
+                                            insertAtCoord (QuadLeaf model.color)
+                                                coord
+                                                scale
+                                                tree
+                                        )
+
+                            Eraser ->
+                                model
+                                    |> doAtCoord visualCoord
+                                        (\coord scale tree ->
+                                            insertAtCoord QuadEmpty
+                                                coord
+                                                scale
+                                                tree
+                                        )
+                in
+                ( { model | canvas = newCanvas }, Cmd.none )
+
+            else
+                ( model, Cmd.none )
 
         Log ( tag, value ) ->
             let
@@ -311,7 +374,7 @@ viewRuler scale maxSize isVisible =
                     ( x, y ) =
                         event.pointer.offsetPos
                 in
-                TryDraw
+                TryUseTool
                     { x = ceiling x
                     , y = ceiling y
                     }
@@ -417,6 +480,8 @@ viewMsgButtons model =
         , button [ onClick (ChangeScale (model.scale + 1)) ] [ text "+ Scale" ]
         , button [ onClick (ChangeScale (model.scale - 1)) ] [ text "- Scale" ]
         , button [ onClick RulerVisibleToggle ] [ text "Toggle Ruler" ]
+        , button [ onClick (ChangeTool Pencil) ] [ text "✎" ]
+        , button [ onClick (ChangeTool Eraser) ] [ text "▱" ]
         ]
 
 
