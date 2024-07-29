@@ -1,0 +1,29 @@
+port module Storage exposing (..)
+
+--import Canvas exposing (Canvas)
+--import Color exposing (Color)
+--import Json.Decode as JD
+--import Json.Encode as JE
+--import Main exposing (PointerData)
+--port canvasRulerPressed : (JE.Value -> msg) -> Sub msg
+--port store : String -> Cmd msg
+--type alias Model =
+--    { canvas : Canvas
+--    , scale : Int
+--    , isRulerVisible : Bool
+--    , size : Int
+--    , color : Color
+--    , colorpalette : List Color
+--    , canvasPointer : PointerData
+--    }
+--decodePoint : JD.Decoder Point
+--decodePoint =
+--    JD.map2 Point (JD.field "x" JD.int) (JD.field "y" JD.int)
+--canvasRulerPressed
+--    (\jsPoint ->
+--        jsPoint
+--            |> JD.decodeValue decodePoint
+--            |> Result.Extra.unpack
+--                (\error -> Log ( "Error", JD.errorToString error ))
+--                Draw
+--    )

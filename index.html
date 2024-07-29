@@ -11,6 +11,7 @@
     @import url('https://fonts.googleapis.com/css2?family=Red+Hat+Display:ital,wght@0,300..900;1,300..900&display=swap');
     body {
       margin: 0;
+      overflow: auto;
 
       font-family: "Red Hat Display", sans-serif;
       font-optical-sizing: auto;
@@ -25,9 +26,9 @@
 </body>
 <script type="text/javascript">
 
-  function point(x, y) {
-    return { x: x, y: y };
-  }
+  // function point(x, y) {
+  //   return { x: x, y: y };
+  // }
 
   // MAIN
   var shell = document.getElementById('shell')
@@ -35,6 +36,8 @@
   var app = window.Elm.Main.init({
     node: shell
   });
+
+  // app.ports.canvasRulerPressed.send(point(x, y));
 
   //var canvasRuler = document.getElementById('canvasRuler');
 

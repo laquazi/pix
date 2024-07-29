@@ -1,6 +1,3 @@
---port module Main exposing (..)
-
-
 module Main exposing (..)
 
 import Browser
@@ -14,17 +11,10 @@ import Html exposing (Html, button, div, text)
 import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
 import Html.Events.Extra.Pointer as Pointer
-import Json.Decode as JD
-import Json.Encode as JE
 import List.Extra
 import Quadtree exposing (..)
-import Result.Extra
 import Svg exposing (defs, pattern, rect, svg)
 import Svg.Attributes exposing (fill, height, id, patternUnits, shapeRendering, stroke, strokeWidth, width, x, y)
-
-
-
---port canvasRulerPressed : (JE.Value -> msg) -> Sub msg
 
 
 {-| TODO: add background for non-transparent things and use it for layer text among other things
@@ -33,6 +23,7 @@ config =
     { color =
         { background = Color.rgb255 218 218 218
         , ruler = Color.rgb255 218 218 218
+        , opaqueBackground = Color.rgb255 140 140 140
         }
     , zIndex =
         { canvas = 0
@@ -280,10 +271,6 @@ update msg model =
 
 
 -- SUBSCRIPTIONS
---
---decodePoint : JD.Decoder Point
---decodePoint =
---    JD.map2 Point (JD.field "x" JD.int) (JD.field "y" JD.int)
 
 
 subscriptions : Model -> Sub Msg
@@ -292,14 +279,6 @@ subscriptions _ =
 
 
 
---canvasRulerPressed
---    (\jsPoint ->
---        jsPoint
---            |> JD.decodeValue decodePoint
---            |> Result.Extra.unpack
---                (\error -> Log ( "Error", JD.errorToString error ))
---                Draw
---    )
 -- VIEW
 
 
@@ -497,6 +476,7 @@ viewLayers model =
         , style "position" "absolute"
         , style "top" "20px"
         , style "left" (px (toFloat model.size + config.defaultMargin * 2))
+        , style "background-color" (Color.toCssString config.color.opaqueBackground)
         ]
         [ button [ onClick AddNewLayer ] [ text "+" ]
         , button [ onClick RemoveSelectedLayer ] [ text "-" ]
