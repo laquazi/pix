@@ -282,6 +282,7 @@ update msg model =
             ( { model | canvas = newCanvas }, Cmd.none )
 
         DownloadCanvasAsPng ->
+            -- TODO: use this once it is actually possible to change size on the js side: `size = 2 ^ ({ canvas | layers = canvas.layers |> List.filter .isVisible } |> Canvas.mergeLayers |> Quadtree.optimize |> Quadtree.calculateMaxDepth )`
             ( model
             , Ports.encodeDownloadSvgAsPng "canvas" "pix" model.size |> Ports.downloadSvgAsPng
             )
@@ -428,6 +429,7 @@ viewSelectedColor model =
         [ text "\u{200B}" ]
 
 
+viewMsgButtons : Model -> Html Msg
 viewMsgButtons model =
     div [ style "margin" (px config.defaultMargin) ]
         [ button [ onClick Reset ] [ text "Reset" ]

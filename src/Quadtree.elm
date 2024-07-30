@@ -6,6 +6,7 @@ import Color exposing (Color)
 import Common exposing (..)
 import Html exposing (Html, div)
 import Html.Attributes exposing (style)
+import List.Extra
 import Svg exposing (g, rect, svg)
 import Svg.Attributes exposing (fill, height, shapeRendering, width, x, y)
 
@@ -161,6 +162,53 @@ insertAtCoord insertTree ({ x, y } as coord) scale tree =
                     |> repeatQuadtree
                     |> setQuadrant quadrant newQuadrant
                     |> QuadNode
+
+
+
+--{-| FIXME: always 0?
+---}
+--calculateMaxDepth0 : Int -> Quadtree a -> Int
+--calculateMaxDepth0 depth tree =
+--    case tree of
+--        QuadNode quadrants ->
+--            quadrants |> Array.map (\quadrant -> calculateMaxDepth0 (depth + 1) quadrant) |> Debug.log "maxes" |> Array.foldl max 0
+--
+--        _ ->
+--            0
+--
+--{-| FIXME: always 0?
+---}
+--calculateMaxDepth : Quadtree a -> Int
+--calculateMaxDepth tree =
+--    calculateMaxDepth0 0 tree
+
+
+{-| FIXME: untested
+-}
+optimize : Quadtree a -> Quadtree a
+optimize tree =
+    case tree of
+        QuadNode quadrants ->
+            if (quadrants |> Array.toList |> List.Extra.unique |> List.length) == 1 then
+                case quadrants |> Array.get 0 |> Maybe.withDefault QuadEmpty of
+                    QuadNode subQuadrants ->
+                        subQuadrants
+                            |> Array.map (\quadrant -> optimize quadrant)
+                            |> QuadNode
+
+                    QuadEmpty ->
+                        QuadEmpty
+
+                    QuadLeaf data ->
+                        QuadLeaf data
+
+            else
+                quadrants
+                    |> Array.map (\quadrant -> optimize quadrant)
+                    |> QuadNode
+
+        _ ->
+            tree
 
 
 viewQuadLeaf0 offsetX offsetY maxSize n color =
