@@ -201,7 +201,7 @@ viewQuadtree0 offsetX offsetY maxSize n emptyColor tree =
                 ]
 
 
-viewQuadtree maxSize emptyColor tree =
+viewQuadtree maxSize emptyColor svgId tree =
     div
         [ style "position" "relative"
         , style "width" (String.fromFloat maxSize ++ "px")
@@ -210,6 +210,7 @@ viewQuadtree maxSize emptyColor tree =
         [ svg
             [ width "100%"
             , height "100%"
+            , Svg.Attributes.id svgId
             ]
             [ viewQuadtree0 0 0 maxSize 0 emptyColor tree ]
         ]

@@ -387,7 +387,7 @@ viewCanvas model =
         [ viewRuler (toFloat model.scale) (toFloat model.size) model.isRulerVisible
         , { canvas | layers = canvas.layers |> List.filter .isVisible }
             |> Canvas.mergeLayers
-            |> viewQuadtree (toFloat model.size) colorTransparent
+            |> viewQuadtree (toFloat model.size) colorTransparent "canvas"
         ]
 
 
@@ -463,6 +463,7 @@ viewLayer selectedLayerIndex i layer =
                         toFloat previewSize
                     )
                     config.color.background
+                    ("layer:" ++ layer.name)
             ]
         , div
             [ style "overflow" "auto"

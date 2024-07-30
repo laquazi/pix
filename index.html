@@ -9,6 +9,7 @@
   <script type="text/javascript" src="elm.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Red+Hat+Display:ital,wght@0,300..900;1,300..900&display=swap');
+
     body {
       margin: 0;
       overflow: auto;
@@ -31,7 +32,7 @@
   // }
 
   // MAIN
-  var shell = document.getElementById('shell')
+  var shell = document.getElementById('shell');
 
   var app = window.Elm.Main.init({
     node: shell
@@ -48,6 +49,52 @@
   //  let y = Math.floor(event.clientY - rect.top);
   //  app.ports.canvasRulerPressed.send(point(x, y));
   //});
+
+  function triggerDownload(imgURI, filename) {
+    const a = document.createElement('a');
+    a.download = filename + '.png';
+    a.target = '_blank';
+    a.href = imgURI;
+
+    a.dispatchEvent(new MouseEvent('click', {
+      view: window,
+      bubbles: false,
+      cancelable: true
+    }));
+  }
+
+  function downloadSvg(svgNode, filename, width, height) {
+    const svgString = (new XMLSerializer()).serializeToString(svgNode);
+    const svgBlob = new Blob([svgString], {
+      type: 'image/svg+xml;charset=utf-8'
+    });
+
+    const DOM_URL = window.URL || window.webkitURL || window;
+    const url = DOM_URL.createObjectURL(svgBlob);
+
+    const image = new Image();
+    image.width = width;
+    image.height = height;
+    image.src = url;
+    image.onload = function () {
+      const canvas = document.createElement('canvas');
+      canvas.width = image.width;
+      canvas.height = image.height;
+
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(image, 0, 0);
+      DOM_URL.revokeObjectURL(url);
+
+      const imgURI = canvas
+        .toDataURL('image/png')
+        .replace('image/png', 'image/octet-stream');
+      triggerDownload(imgURI, filename);
+    };
+  }
+
+  // const canvas = document.getElementById('canvas');
+  // const rect = canvas.getBoundingClientRect();
+  // downloadSvg(canvas, 'pix', rect.width, rect.height);
 
 </script>
 
