@@ -80,7 +80,7 @@ init _ =
     ( { canvas =
             { selectedLayerIndex = 1
             , layers =
-                [ { layerEmpty | data = QuadLeaf Color.white, name = "Background" }
+                [ { layerEmpty | name = "Background", data = QuadLeaf Color.white }
                 , { layerEmpty | name = "Layer 1" }
                 ]
             }

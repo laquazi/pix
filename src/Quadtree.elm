@@ -4,8 +4,10 @@ import Array exposing (Array)
 import Array.Extra
 import Color exposing (Color)
 import Common exposing (..)
-import Html exposing (Html, div, table, tbody, td, text, tr)
+import Html exposing (Html, div)
 import Html.Attributes exposing (style)
+import Svg exposing (g, rect, svg)
+import Svg.Attributes exposing (fill, height, shapeRendering, width, x, y)
 
 
 type alias Quadrants a =
@@ -161,46 +163,53 @@ insertAtCoord insertTree ({ x, y } as coord) scale tree =
                     |> QuadNode
 
 
-viewQuadLeaf0 maxSize n color =
+viewQuadLeaf0 offsetX offsetY maxSize n color =
     let
         sizeStr =
-            String.fromFloat (maxSize / (2 ^ n)) ++ "px"
+            String.fromFloat (maxSize / (2 ^ n))
     in
-    div
-        [ style "width" sizeStr
-        , style "height" sizeStr
-        , style "background-color" (Color.toCssString color)
+    rect
+        [ fill (Color.toCssString color)
+        , width sizeStr
+        , height sizeStr
+        , x (String.fromFloat offsetX)
+        , y (String.fromFloat offsetY)
+        , shapeRendering "crispEdges"
         ]
-        [ text "\u{200B}" ]
+        []
 
 
-viewQuadtree0 maxSize n emptyColor x =
-    case x of
+viewQuadtree0 offsetX offsetY maxSize n emptyColor tree =
+    case tree of
         QuadEmpty ->
-            emptyColor |> viewQuadLeaf0 maxSize n
+            emptyColor |> viewQuadLeaf0 offsetX offsetY maxSize n
 
         QuadLeaf color ->
-            color |> viewQuadLeaf0 maxSize n
+            color |> viewQuadLeaf0 offsetX offsetY maxSize n
 
         QuadNode quadrants ->
             let
-                viewTd q =
-                    td [ style "padding" "0" ]
-                        [ quadrants
-                            |> getQuadrant q
-                            |> viewQuadtree0 maxSize (n + 1) emptyColor
-                        ]
+                o =
+                    maxSize / (2 ^ (n + 1))
             in
-            table
-                [ style "border-collapse" "collapse"
-                , style "user-select" "none"
-                ]
-                [ tbody []
-                    [ tr [] [ viewTd TopLeft, viewTd TopRight ]
-                    , tr [] [ viewTd BottomLeft, viewTd BottomRight ]
-                    ]
+            g
+                []
+                [ viewQuadtree0 offsetX offsetY maxSize (n + 1) emptyColor (getQuadrant TopLeft quadrants)
+                , viewQuadtree0 (offsetX + o) offsetY maxSize (n + 1) emptyColor (getQuadrant TopRight quadrants)
+                , viewQuadtree0 offsetX (offsetY + o) maxSize (n + 1) emptyColor (getQuadrant BottomLeft quadrants)
+                , viewQuadtree0 (offsetX + o) (offsetY + o) maxSize (n + 1) emptyColor (getQuadrant BottomRight quadrants)
                 ]
 
 
-viewQuadtree maxSize emptyColor x =
-    viewQuadtree0 maxSize 0 emptyColor x
+viewQuadtree maxSize emptyColor tree =
+    div
+        [ style "position" "relative"
+        , style "width" (String.fromFloat maxSize ++ "px")
+        , style "height" (String.fromFloat maxSize ++ "px")
+        ]
+        [ svg
+            [ width "100%"
+            , height "100%"
+            ]
+            [ viewQuadtree0 0 0 maxSize 0 emptyColor tree ]
+        ]
