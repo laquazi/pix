@@ -12,6 +12,7 @@ import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
 import Html.Events.Extra.Pointer as Pointer
 import List.Extra
+import Ports
 import Quadtree exposing (..)
 import Svg exposing (defs, pattern, rect, svg)
 import Svg.Attributes exposing (fill, height, id, patternUnits, shapeRendering, stroke, strokeWidth, width, x, y)
@@ -135,6 +136,7 @@ type Msg
     | RemoveSelectedLayer
     | TryUseTool Point
     | ChangeTool Tool
+    | DownloadCanvasAsPng
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -278,6 +280,11 @@ update msg model =
                         |> Canvas.removeSelectedLayer
             in
             ( { model | canvas = newCanvas }, Cmd.none )
+
+        DownloadCanvasAsPng ->
+            ( model
+            , Ports.encodeDownloadSvgAsPng "canvas" "pix" model.size |> Ports.downloadSvgAsPng
+            )
 
 
 
@@ -430,6 +437,7 @@ viewMsgButtons model =
         , button [ onClick RulerVisibleToggle ] [ text "Toggle Ruler" ]
         , button [ onClick (ChangeTool Pencil) ] [ text "✎" ]
         , button [ onClick (ChangeTool Eraser) ] [ text "▱" ]
+        , button [ onClick DownloadCanvasAsPng ] [ text "⇓" ]
         ]
 
 

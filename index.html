@@ -30,26 +30,6 @@
   // function point(x, y) {
   //   return { x: x, y: y };
   // }
-
-  // MAIN
-  var shell = document.getElementById('shell');
-
-  var app = window.Elm.Main.init({
-    node: shell
-  });
-
-  // app.ports.canvasRulerPressed.send(point(x, y));
-
-  //var canvasRuler = document.getElementById('canvasRuler');
-
-  //canvasRuler.addEventListener('click', function (event) {
-  //  const target = event.target;
-  //  const rect = target.getBoundingClientRect();
-  //  let x = Math.floor(event.clientX - rect.left);
-  //  let y = Math.floor(event.clientY - rect.top);
-  //  app.ports.canvasRulerPressed.send(point(x, y));
-  //});
-
   function triggerDownload(imgURI, filename) {
     const a = document.createElement('a');
     a.download = filename + '.png';
@@ -92,9 +72,30 @@
     };
   }
 
-  // const canvas = document.getElementById('canvas');
-  // const rect = canvas.getBoundingClientRect();
-  // downloadSvg(canvas, 'pix', rect.width, rect.height);
+  // MAIN
+  var shell = document.getElementById('shell');
+
+  var app = window.Elm.Main.init({
+    node: shell
+  });
+
+  // app.ports.canvasRulerPressed.send(point(x, y));
+
+  //var canvasRuler = document.getElementById('canvasRuler');
+
+  //canvasRuler.addEventListener('click', function (event) {
+  //  const target = event.target;
+  //  const rect = target.getBoundingClientRect();
+  //  let x = Math.floor(event.clientX - rect.left);
+  //  let y = Math.floor(event.clientY - rect.top);
+  //  app.ports.canvasRulerPressed.send(point(x, y));
+  //});
+
+
+  app.ports.downloadSvgAsPng.subscribe(function (message) {
+    const element = document.getElementById(message.elementId);
+    downloadSvg(element, message.filename, message.size.x, message.size.y);
+  });
 
 </script>
 

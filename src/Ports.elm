@@ -1,12 +1,22 @@
-port module Storage exposing (..)
+port module Ports exposing (..)
 
 --import Canvas exposing (Canvas)
 --import Color exposing (Color)
---import Json.Decode as JD
---import Json.Encode as JE
+
+import Common exposing (Point)
+import Json.Decode as JD
+import Json.Encode as JE
+
+
+
 --import Main exposing (PointerData)
 --port canvasRulerPressed : (JE.Value -> msg) -> Sub msg
---port store : String -> Cmd msg
+
+
+port downloadSvgAsPng : JD.Value -> Cmd msg
+
+
+
 --type alias Model =
 --    { canvas : Canvas
 --    , scale : Int
@@ -19,6 +29,26 @@ port module Storage exposing (..)
 --decodePoint : JD.Decoder Point
 --decodePoint =
 --    JD.map2 Point (JD.field "x" JD.int) (JD.field "y" JD.int)
+
+
+encodePoint : Point -> JD.Value
+encodePoint point =
+    JE.object
+        [ ( "x", JE.int point.x )
+        , ( "y", JE.int point.y )
+        ]
+
+
+encodeDownloadSvgAsPng : String -> String -> Int -> JD.Value
+encodeDownloadSvgAsPng elementId filename size =
+    JE.object
+        [ ( "elementId", JE.string elementId )
+        , ( "size", encodePoint { x = size, y = size } )
+        , ( "filename", JE.string filename )
+        ]
+
+
+
 --canvasRulerPressed
 --    (\jsPoint ->
 --        jsPoint
