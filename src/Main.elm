@@ -137,6 +137,7 @@ type Msg
     | TryUseTool Point
     | ChangeTool Tool
     | DownloadCanvasAsPng
+    | Test
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -286,6 +287,9 @@ update msg model =
             ( model
             , Ports.encodeDownloadSvgAsPng "canvas" "pix" model.size |> Ports.downloadSvgAsPng
             )
+
+        Test ->
+            ( model, Cmd.none )
 
 
 
@@ -440,6 +444,7 @@ viewMsgButtons model =
         , button [ onClick (ChangeTool Pencil) ] [ text "✎" ]
         , button [ onClick (ChangeTool Eraser) ] [ text "▱" ]
         , button [ onClick DownloadCanvasAsPng ] [ text "⇓" ]
+        , button [ onClick Test ] [ text "Test" ]
         ]
 
 
