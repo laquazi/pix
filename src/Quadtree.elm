@@ -1,4 +1,4 @@
-module Quadtree exposing (Quadrant, Quadrants, Quadtree(..), calculateMaxDepth, coord2quadrant, depth2halfMaxCoord, getQuadrant, getQuadrantId, insertAtCoord, merge, optimize, quadnode, repeatQuadtree, viewQuadtree)
+module Quadtree exposing (Quadrant, Quadrants, Quadtree(..), calculateMaxDepth, coord2quadrant, depth2halfMaxCoord, getQuadrant, getQuadrantId, insertAtCoord, merge, optimize, quadnode, repeatQuadtree, scale, scaleOnce, viewQuadtree)
 
 import Array exposing (Array)
 import Array.Extra
@@ -218,6 +218,28 @@ optimize tree =
 
         _ ->
             tree
+
+
+scaleOnce : Quadtree a -> Quadtree a
+scaleOnce tree =
+    case tree of
+        QuadNode quadrants ->
+            quadrants |> Array.map scaleOnce |> QuadNode
+
+        _ ->
+            tree |> repeatQuadtree |> QuadNode
+
+
+{-| NOTE: 1 -> x2, 2 -> x4, 3 -> x8
+TODO: do not use it for building svg images for download
+-}
+scale : Int -> Quadtree a -> Quadtree a
+scale times tree =
+    if times <= 0 then
+        tree
+
+    else
+        tree |> scaleOnce |> scale (times - 1)
 
 
 viewQuadLeaf0 offsetX offsetY maxSize n color =

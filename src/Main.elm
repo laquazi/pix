@@ -116,6 +116,11 @@ doAtCoord visualCoord f model =
             )
 
 
+logCmd : String -> a -> Cmd Msg
+logCmd msg data =
+    Log ( msg, Debug.toString data ) |> cmd
+
+
 
 -- UPDATE
 
@@ -289,7 +294,13 @@ update msg model =
             )
 
         Test ->
-            ( model, Cmd.none )
+            ( model
+            , model.canvas
+                |> Canvas.mergeLayers
+                |> Quadtree.scale 2
+                |> Quadtree.calculateMaxDepth
+                |> logCmd "scale"
+            )
 
 
 
