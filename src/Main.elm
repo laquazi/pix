@@ -306,30 +306,10 @@ update msg model =
                         |> Quadtree.optimize
 
                 -- max quadtree size = min image size
-                --fitTree =
-                --    optimizedTree |> Quadtree.fitToMaxDepth
-                maxDepth =
-                    optimizedTree |> Quadtree.calculateMaxDepth
-
-                treeMaxSize =
-                    Quadtree.depth2size maxDepth
-
-                test =
+                ( minImageSize, imageData ) =
                     optimizedTree
-                        |> Quadtree.fitToDepth maxDepth
-                        |> Quadtree.toCoordDict treeMaxSize
-                        |> Dict.toList
-                        |> List.sortBy (\( ( x, y ), _ ) -> ( y, x ))
-                        |> log "sorted list"
-                        |> List.map (\( _, mv ) -> mv |> Maybe.withDefault colorTransparent)
-                        |> (\x -> ( treeMaxSize, x ))
-                        |> log "test"
-
-                test1 =
-                    optimizedTree |> Quadtree.toListWithDefault colorTransparent |> log "test1"
-
-                test2 =
-                    test == test1 |> log "test2"
+                        |> Quadtree.toListWithDefault colorTransparent
+                        |> log "sdjgf"
             in
             ( model
               --, [ test ] |> logCmd "Test"

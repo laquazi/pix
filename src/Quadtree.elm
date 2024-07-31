@@ -211,25 +211,32 @@ maybeReturnFirstData tree =
                 |> Array.foldl Maybe.Extra.or Nothing
 
 
-{-| FIXME: optimizes not only data, but also patterns
--}
 optimize : Quadtree a -> Quadtree a
 optimize tree =
     case tree of
         QuadNode quadrants ->
             let
-                optimizedQuadrants =
-                    quadrants |> Array.map optimize
+                maybeTopLeft =
+                    Array.get 0 quadrants
             in
-            if optimizedQuadrants |> Array.Extra.all (\q -> Just q == Array.get 0 optimizedQuadrants) then
-                -- unique quadrants
-                Array.get 0 optimizedQuadrants
-                    |> Maybe.andThen maybeReturnFirstData
-                    |> Maybe.Extra.unwrap QuadEmpty QuadLeaf
+            if quadrants |> Array.Extra.all (\q -> Just q == maybeTopLeft) then
+                maybeTopLeft
+                    |> Maybe.Extra.unwrap QuadEmpty
+                        (\topLeft ->
+                            case topLeft of
+                                QuadNode topLeftQuadrants ->
+                                    topLeftQuadrants
+                                        |> Array.map optimize
+                                        |> QuadNode
+
+                                _ ->
+                                    topLeft
+                        )
 
             else
-                -- distinct quadrants
-                QuadNode optimizedQuadrants
+                quadrants
+                    |> Array.map optimize
+                    |> QuadNode
 
         _ ->
             tree
@@ -282,48 +289,6 @@ fitToMaxDepth tree =
     tree |> fitToDepth (tree |> calculateMaxDepth)
 
 
-
---toCoordDict0 : ( Int, Int ) -> Float -> Float -> Quadtree a -> Dict ( Int, Int ) (Maybe a)
---toCoordDict0 ( x, y ) maxSize depth tree =
---    case tree of
---        QuadLeaf data ->
---            Dict.singleton ( x, y ) (Just data)
---
---        QuadEmpty ->
---            Dict.singleton ( x, y ) Nothing
---
---        QuadNode quadrants ->
---            let
---                o =
---                    maxSize / (2 ^ (depth + 1)) |> round
---            in
---            quadrants
---                |> Array.indexedMap
---                    (\i quadrant ->
---                        let
---                            coord =
---                                case i of
---                                    0 ->
---                                        ( x, y )
---
---                                    1 ->
---                                        ( x + o, y )
---
---                                    2 ->
---                                        ( x, y + o )
---
---                                    _ ->
---                                        ( x + o, y + o )
---                        in
---                        quadrant |> toCoordDict0 coord maxSize (depth - 1)
---                    )
---                |> Array.foldl (\dict acc -> Dict.union dict acc) Dict.empty
---
---toCoordDict1 :  Int -> Quadtree a -> Dict ( Int, Int ) (Maybe a)
---toCoordDict1 maxDepth tree =
---    tree |> toCoordDict0 ( 0, 0 ) (maxDepth |> depth2size |> toFloat) (toFloat maxDepth)
-
-
 toCoordDict0 : ( Int, Int ) -> Int -> Quadtree a -> Dict ( Int, Int ) (Maybe a)
 toCoordDict0 ( x, y ) offset tree =
     case tree of
@@ -360,34 +325,6 @@ toCoordDict0 ( x, y ) offset tree =
 toCoordDict : Int -> Quadtree a -> Dict ( Int, Int ) (Maybe a)
 toCoordDict maxSize tree =
     tree |> toCoordDict0 ( 0, 0 ) (maxSize // 2)
-
-
-
---toList2dWithDefault : a -> Quadtree a -> List (List a)
---toList2dWithDefault default tree =
---    tree
---        |> fitToMaxDepth
---        |> toCoordDict
---        |> Dict.foldr
---            (\( x, y ) mv ( maxYacc, acc ) ->
---                let
---                    v =
---                        mv |> Maybe.withDefault default
---
---                    maxY =
---                        if y > List.length acc then
---                            y
---
---                        else
---                            maxYacc
---
---                    newAcc =
---                        acc
---                in
---                ( maxY, newAcc )
---            )
---            ( 0, [] )
---        |> Tuple.second
 
 
 toListWithDefault : a -> Quadtree a -> ( Int, List a )
