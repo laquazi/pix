@@ -1,5 +1,6 @@
 module Main exposing (..)
 
+import Array
 import Browser
 import Canvas exposing (Canvas, CanvasLayer, layerEmpty)
 import Color exposing (Color)
@@ -294,12 +295,20 @@ update msg model =
             )
 
         Test ->
+            let
+                canvas =
+                    model.canvas
+
+                optimizedTree =
+                    { canvas | layers = canvas.layers |> List.filter .isVisible }
+                        |> Canvas.mergeLayers
+                        |> Quadtree.optimize
+
+                minSize =
+                    2 ^ (optimizedTree |> Quadtree.calculateMaxDepth)
+            in
             ( model
-            , model.canvas
-                |> Canvas.mergeLayers
-                |> Quadtree.scale 2
-                |> Quadtree.calculateMaxDepth
-                |> logCmd "scale"
+            , [ minSize ] |> logCmd "Test"
             )
 
 

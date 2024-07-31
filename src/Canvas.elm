@@ -36,6 +36,12 @@ mergeLayers canvas =
         |> Tuple.first
 
 
+mergeVisibleLayers : Canvas -> Quadtree Color
+mergeVisibleLayers canvas =
+    { canvas | layers = canvas.layers |> List.filter .isVisible }
+        |> mergeLayers
+
+
 layerEmpty : CanvasLayer
 layerEmpty =
     { data = QuadEmpty
