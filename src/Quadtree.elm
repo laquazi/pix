@@ -1,9 +1,10 @@
-module Quadtree exposing (Quadrant, Quadrants, Quadtree(..), calculateMaxDepth, coord2quadrant, depth2halfMaxCoord, getQuadrant, getQuadrantId, insertAtCoord, merge, optimize, quadnode, repeatQuadtree, scale, scaleOnce, viewQuadtree)
+module Quadtree exposing (Quadrant, Quadrants, Quadtree(..), calculateMaxDepth, calculateMaxSize, coord2quadrant, depth2halfSize, depth2size, fitToDepth, fitToMaxDepth, getQuadrant, getQuadrantId, insertAtCoord, merge, optimize, quadnode, repeatQuadtree, scale, scaleOnce, toCoordDict, toListWithDefault, viewQuadtree)
 
 import Array exposing (Array)
 import Array.Extra
 import Color exposing (Color)
 import Common exposing (..)
+import Dict exposing (Dict)
 import Html exposing (Html, div)
 import Html.Attributes exposing (style)
 import List.Extra
@@ -103,20 +104,20 @@ setQuadrant quadrant quadtree quadrants =
         |> Array.set (getQuadrantId quadrant) quadtree
 
 
-depth2halfMaxCoord : Int -> Int
-depth2halfMaxCoord depth =
+depth2halfSize : Int -> Int
+depth2halfSize depth =
     (2 ^ depth) // 2
 
 
 coord2quadrant : Point -> Int -> Quadrant
-coord2quadrant { x, y } halfMaxCoord =
-    if x < halfMaxCoord && y < halfMaxCoord then
+coord2quadrant { x, y } halfSize =
+    if x < halfSize && y < halfSize then
         TopLeft
 
-    else if x >= halfMaxCoord && y < halfMaxCoord then
+    else if x >= halfSize && y < halfSize then
         TopRight
 
-    else if x < halfMaxCoord && y >= halfMaxCoord then
+    else if x < halfSize && y >= halfSize then
         BottomLeft
 
     else
@@ -132,17 +133,17 @@ insertAtCoord insertTree ({ x, y } as coord) depth tree =
 
     else
         let
-            halfMaxCoord =
-                depth2halfMaxCoord depth
+            halfSize =
+                depth2halfSize depth
 
             newDepth =
                 depth - 1
 
             newCoord =
-                { x = x |> remainderBy halfMaxCoord, y = y |> remainderBy halfMaxCoord }
+                { x = x |> remainderBy halfSize, y = y |> remainderBy halfSize }
 
             quadrant =
-                coord2quadrant coord halfMaxCoord
+                coord2quadrant coord halfSize
         in
         case tree of
             QuadNode quadrants ->
@@ -185,6 +186,16 @@ calculateMaxDepth tree =
     calculateMaxDepth0 0 tree
 
 
+depth2size : Int -> Int
+depth2size depth =
+    2 ^ depth
+
+
+calculateMaxSize : Quadtree a -> Int
+calculateMaxSize tree =
+    tree |> calculateMaxDepth |> depth2size
+
+
 maybeReturnFirstData : Quadtree a -> Maybe a
 maybeReturnFirstData tree =
     case tree of
@@ -200,6 +211,8 @@ maybeReturnFirstData tree =
                 |> Array.foldl Maybe.Extra.or Nothing
 
 
+{-| FIXME: optimizes not only data, but also patterns
+-}
 optimize : Quadtree a -> Quadtree a
 optimize tree =
     case tree of
@@ -209,11 +222,13 @@ optimize tree =
                     quadrants |> Array.map optimize
             in
             if optimizedQuadrants |> Array.Extra.all (\q -> Just q == Array.get 0 optimizedQuadrants) then
+                -- unique quadrants
                 Array.get 0 optimizedQuadrants
                     |> Maybe.andThen maybeReturnFirstData
                     |> Maybe.Extra.unwrap QuadEmpty QuadLeaf
 
             else
+                -- distinct quadrants
                 QuadNode optimizedQuadrants
 
         _ ->
@@ -240,6 +255,157 @@ scale times tree =
 
     else
         tree |> scaleOnce |> scale (times - 1)
+
+
+{-| NOTE: adds nodes until all nodes have the same depth
+-}
+fitToDepth : Int -> Quadtree a -> Quadtree a
+fitToDepth depth tree =
+    if depth <= 0 then
+        tree
+
+    else
+        (case tree of
+            QuadNode quadrants ->
+                quadrants
+
+            _ ->
+                tree
+                    |> repeatQuadtree
+        )
+            |> Array.map (fitToDepth (depth - 1))
+            |> QuadNode
+
+
+fitToMaxDepth : Quadtree a -> Quadtree a
+fitToMaxDepth tree =
+    tree |> fitToDepth (tree |> calculateMaxDepth)
+
+
+
+--toCoordDict0 : ( Int, Int ) -> Float -> Float -> Quadtree a -> Dict ( Int, Int ) (Maybe a)
+--toCoordDict0 ( x, y ) maxSize depth tree =
+--    case tree of
+--        QuadLeaf data ->
+--            Dict.singleton ( x, y ) (Just data)
+--
+--        QuadEmpty ->
+--            Dict.singleton ( x, y ) Nothing
+--
+--        QuadNode quadrants ->
+--            let
+--                o =
+--                    maxSize / (2 ^ (depth + 1)) |> round
+--            in
+--            quadrants
+--                |> Array.indexedMap
+--                    (\i quadrant ->
+--                        let
+--                            coord =
+--                                case i of
+--                                    0 ->
+--                                        ( x, y )
+--
+--                                    1 ->
+--                                        ( x + o, y )
+--
+--                                    2 ->
+--                                        ( x, y + o )
+--
+--                                    _ ->
+--                                        ( x + o, y + o )
+--                        in
+--                        quadrant |> toCoordDict0 coord maxSize (depth - 1)
+--                    )
+--                |> Array.foldl (\dict acc -> Dict.union dict acc) Dict.empty
+--
+--toCoordDict1 :  Int -> Quadtree a -> Dict ( Int, Int ) (Maybe a)
+--toCoordDict1 maxDepth tree =
+--    tree |> toCoordDict0 ( 0, 0 ) (maxDepth |> depth2size |> toFloat) (toFloat maxDepth)
+
+
+toCoordDict0 : ( Int, Int ) -> Int -> Quadtree a -> Dict ( Int, Int ) (Maybe a)
+toCoordDict0 ( x, y ) offset tree =
+    case tree of
+        QuadLeaf data ->
+            Dict.singleton ( x, y ) (Just data)
+
+        QuadEmpty ->
+            Dict.singleton ( x, y ) Nothing
+
+        QuadNode quadrants ->
+            quadrants
+                |> Array.indexedMap
+                    (\i quadrant ->
+                        let
+                            coord =
+                                case i of
+                                    0 ->
+                                        ( x, y )
+
+                                    1 ->
+                                        ( x + offset, y )
+
+                                    2 ->
+                                        ( x, y + offset )
+
+                                    _ ->
+                                        ( x + offset, y + offset )
+                        in
+                        quadrant |> toCoordDict0 coord (offset // 2)
+                    )
+                |> Array.foldl (\dict acc -> Dict.union dict acc) Dict.empty
+
+
+toCoordDict : Int -> Quadtree a -> Dict ( Int, Int ) (Maybe a)
+toCoordDict maxSize tree =
+    tree |> toCoordDict0 ( 0, 0 ) (maxSize // 2)
+
+
+
+--toList2dWithDefault : a -> Quadtree a -> List (List a)
+--toList2dWithDefault default tree =
+--    tree
+--        |> fitToMaxDepth
+--        |> toCoordDict
+--        |> Dict.foldr
+--            (\( x, y ) mv ( maxYacc, acc ) ->
+--                let
+--                    v =
+--                        mv |> Maybe.withDefault default
+--
+--                    maxY =
+--                        if y > List.length acc then
+--                            y
+--
+--                        else
+--                            maxYacc
+--
+--                    newAcc =
+--                        acc
+--                in
+--                ( maxY, newAcc )
+--            )
+--            ( 0, [] )
+--        |> Tuple.second
+
+
+toListWithDefault : a -> Quadtree a -> ( Int, List a )
+toListWithDefault default tree =
+    let
+        maxDepth =
+            tree |> calculateMaxDepth
+
+        maxSize =
+            depth2size maxDepth
+    in
+    tree
+        |> fitToDepth maxDepth
+        |> toCoordDict maxSize
+        |> Dict.toList
+        |> List.sortBy (\( ( x, y ), _ ) -> ( y, x ))
+        |> List.map (\( _, mv ) -> mv |> Maybe.withDefault default)
+        |> (\x -> ( maxSize, x ))
 
 
 viewQuadLeaf0 offsetX offsetY maxSize n color =

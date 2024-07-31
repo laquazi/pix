@@ -8,6 +8,7 @@ import Color.Blending
 import Common exposing (..)
 import Config exposing (config)
 import Debug exposing (log)
+import Dict
 import Html exposing (Html, button, div, text)
 import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
@@ -304,11 +305,35 @@ update msg model =
                         |> Canvas.mergeLayers
                         |> Quadtree.optimize
 
-                minSize =
-                    2 ^ (optimizedTree |> Quadtree.calculateMaxDepth)
+                -- max quadtree size = min image size
+                --fitTree =
+                --    optimizedTree |> Quadtree.fitToMaxDepth
+                maxDepth =
+                    optimizedTree |> Quadtree.calculateMaxDepth
+
+                treeMaxSize =
+                    Quadtree.depth2size maxDepth
+
+                test =
+                    optimizedTree
+                        |> Quadtree.fitToDepth maxDepth
+                        |> Quadtree.toCoordDict treeMaxSize
+                        |> Dict.toList
+                        |> List.sortBy (\( ( x, y ), _ ) -> ( y, x ))
+                        |> log "sorted list"
+                        |> List.map (\( _, mv ) -> mv |> Maybe.withDefault colorTransparent)
+                        |> (\x -> ( treeMaxSize, x ))
+                        |> log "test"
+
+                test1 =
+                    optimizedTree |> Quadtree.toListWithDefault colorTransparent |> log "test1"
+
+                test2 =
+                    test == test1 |> log "test2"
             in
             ( model
-            , [ minSize ] |> logCmd "Test"
+              --, [ test ] |> logCmd "Test"
+            , Cmd.none
             )
 
 
