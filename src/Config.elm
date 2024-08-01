@@ -17,7 +17,7 @@ config =
         , floatingElement = 4
         }
     , defaultMargin = 10
-    , defaultDownloadImageData = { format = Raster Png, scale = 0, filename = "pix" }
+    , defaultDownloadImageData = { format = Png, scale = 0, filename = "pix" }
     , defaultColorpalette =
         [ Color.rgb255 255 138 128 -- redA100
         , Color.rgb255 255 128 171 -- pinkA100

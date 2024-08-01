@@ -22,6 +22,7 @@ import Ports
 import Quadtree exposing (..)
 import Svg exposing (defs, pattern, rect, svg)
 import Svg.Attributes exposing (fill, height, id, patternUnits, shapeRendering, stroke, strokeWidth, width, x, y)
+import Svg.String
 
 
 quad0 =
@@ -84,27 +85,14 @@ logCmd msg data =
     Log ( msg, Debug.toString data ) |> cmd
 
 
-downloadRasterImage format imageDownloadData tree =
-    let
-        formatData =
-            imageFormatData format
-    in
+downloadRasterImage imageFormatData imageDownloadData image2bytes tree =
     -- max quadtree size = min image size
     tree
         |> Quadtree.scale imageDownloadData.scale
         |> Quadtree.toListWithDefault colorTransparent
         |> (\( minImageSize, imageData ) -> imageData |> Image.Color.fromList minImageSize)
-        |> (case format of
-                Png ->
-                    Image.toPng
-
-                Bmp ->
-                    Image.toBmp
-
-                Gif ->
-                    Image.toGif
-           )
-        |> File.Download.bytes (imageDownloadData.filename ++ "." ++ formatData.extension) formatData.mimeType
+        |> image2bytes
+        |> File.Download.bytes (imageDownloadData.filename ++ "." ++ imageFormatData.extension) imageFormatData.mimeType
 
 
 
@@ -336,17 +324,30 @@ update msg model =
                 downloadCmd =
                     case imageDownloadData.format of
                         Png ->
+                            optimizedTree |> downloadRasterImage (imageFormatData Png) imageDownloadData Image.toPng
+
+                        Bmp ->
+                            optimizedTree |> downloadRasterImage (imageFormatData Bmp) imageDownloadData Image.toBmp
+
+                        Gif ->
+                            optimizedTree |> downloadRasterImage (imageFormatData Gif) imageDownloadData Image.toGif
+
+                        Svg ->
+                            -- TODO: SVG download
                             let
+                                -- max quadtree size = min image size
+                                minImageSize =
+                                    optimizedTree |> Quadtree.calculateMaxSize
+
                                 formatData =
-                                    imageFormatData Png
+                                    imageFormatData Svg
+
+                                svgNode =
+                                    optimizedTree
+                                        |> viewQuadtreeSvg (toFloat (minImageSize * (2 ^ imageDownloadData.scale))) colorTransparent
                             in
-                            -- max quadtree size = min image size
-                            optimizedTree
-                                |> scale imageDownloadData.scale
-                                |> Quadtree.toListWithDefault colorTransparent
-                                |> (\( minImageSize, imageData ) -> imageData |> Image.Color.fromList minImageSize)
-                                |> Image.toPng
-                                |> File.Download.bytes (imageDownloadData.filename ++ "." ++ formatData.extension) formatData.mimeType
+                            --Svg.String.toString 0 svgNode |> File.Download.string (imageDownloadData.filename ++ "." ++ formatData.extension) formatData.mimeType
+                            Debug.todo "SVG download"
             in
             ( model
             , downloadCmd
@@ -484,7 +485,7 @@ viewCanvas model =
         [ viewRuler (toFloat model.scale) (toFloat model.size) model.isRulerVisible
         , { canvas | layers = canvas.layers |> List.filter .isVisible }
             |> Canvas.mergeLayers
-            |> viewQuadtree (toFloat model.size) colorTransparent "canvas"
+            |> viewQuadtree (toFloat model.size) colorTransparent
         ]
 
 
@@ -563,7 +564,6 @@ viewLayer selectedLayerIndex i layer =
                         toFloat previewSize
                     )
                     config.color.background
-                    ("layer:" ++ layer.name)
             ]
         , div
             [ style "overflow" "auto"

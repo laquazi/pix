@@ -1,4 +1,4 @@
-module Quadtree exposing (Quadrant, Quadrants, Quadtree(..), calculateMaxDepth, calculateMaxSize, coord2quadrant, depth2halfSize, depth2size, fitToDepth, fitToMaxDepth, getQuadrant, getQuadrantId, insertAtCoord, merge, optimize, quadnode, repeatQuadtree, scale, scaleOnce, toCoordDict, toListWithDefault, viewQuadtree)
+module Quadtree exposing (Quadrant, Quadrants, Quadtree(..), calculateMaxDepth, calculateMaxSize, coord2quadrant, depth2halfSize, depth2size, fitToDepth, fitToMaxDepth, getQuadrant, getQuadrantId, insertAtCoord, merge, optimize, quadnode, repeatQuadtree, scale, scaleOnce, toCoordDict, toListWithDefault, viewQuadtree, viewQuadtreeSvg)
 
 import Array exposing (Array)
 import Array.Extra
@@ -383,16 +383,19 @@ viewQuadtree0 offsetX offsetY maxSize n emptyColor tree =
                 ]
 
 
-viewQuadtree maxSize emptyColor svgId tree =
+viewQuadtreeSvg maxSize emptyColor tree =
+    svg
+        [ width (String.fromFloat maxSize)
+        , height (String.fromFloat maxSize)
+        ]
+        [ viewQuadtree0 0 0 maxSize 0 emptyColor tree ]
+
+
+viewQuadtree maxSize emptyColor tree =
     div
         [ style "position" "relative"
         , style "width" (String.fromFloat maxSize ++ "px")
         , style "height" (String.fromFloat maxSize ++ "px")
         ]
-        [ svg
-            [ width "100%"
-            , height "100%"
-            , Svg.Attributes.id svgId
-            ]
-            [ viewQuadtree0 0 0 maxSize 0 emptyColor tree ]
+        [ viewQuadtreeSvg maxSize emptyColor tree
         ]

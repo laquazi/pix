@@ -18,47 +18,35 @@ type alias FileFormatData =
     }
 
 
-type RasterImageFormat
+type ImageFormat
     = Png
     | Bmp
     | Gif
+    | Svg
 
 
-type VectorImageFormat
-    = Svg
+imageFormatData : ImageFormat -> FileFormatData
+imageFormatData format =
+    case format of
+        Png ->
+            { extension = "png"
+            , mimeType = "image/png"
+            }
 
+        Bmp ->
+            { extension = "bmp"
+            , mimeType = "image/bmp"
+            }
 
-type ImageType
-    = RasterImage RasterImageFormat
-    | VectorImage VectorImageFormat
+        Gif ->
+            { extension = "gif"
+            , mimeType = "image/gif"
+            }
 
-
-imageFormatData : ImageType -> FileFormatData
-imageFormatData imageType =
-    case imageType of
-        RasterImage format ->
-            case format of
-                Png ->
-                    { extension = "png"
-                    , mimeType = "image/png"
-                    }
-
-                Bmp ->
-                    { extension = "bmp"
-                    , mimeType = "image/bmp"
-                    }
-
-                Gif ->
-                    { extension = "gif"
-                    , mimeType = "image/gif"
-                    }
-
-        VectorImage format ->
-            case format of
-                Svg ->
-                    { extension = "svg"
-                    , mimeType = "image/svg+xml"
-                    }
+        Svg ->
+            { extension = "svg"
+            , mimeType = "image/svg+xml"
+            }
 
 
 colorTransparent : Color
