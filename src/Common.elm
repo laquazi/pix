@@ -77,3 +77,8 @@ arrayConcat arrays =
 dictFromArray : Array ( comparable, v ) -> Dict comparable v
 dictFromArray assocs =
     Array.foldl (\( key, value ) dict -> Dict.insert key value dict) Dict.empty assocs
+
+
+px : Float -> String
+px x =
+    String.fromFloat x ++ "px"

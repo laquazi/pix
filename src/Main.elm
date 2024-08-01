@@ -56,11 +56,6 @@ type alias ImageDownloadData =
     }
 
 
-px : Float -> String
-px x =
-    String.fromFloat x ++ "px"
-
-
 coordVisual2Data : Point -> Int -> Int -> Point
 coordVisual2Data { x, y } scale size =
     { x = (x * (2 ^ scale)) // size
@@ -342,9 +337,9 @@ update msg model =
                                 formatData =
                                     imageFormatData Svg
 
-                                svgNode =
-                                    optimizedTree
-                                        |> viewQuadtreeSvg (toFloat (minImageSize * (2 ^ imageDownloadData.scale))) colorTransparent
+                                --svgNode =
+                                --    optimizedTree
+                                --        |> viewQuadtreeSvg (toFloat (minImageSize * (2 ^ imageDownloadData.scale))) colorTransparent
                             in
                             --Svg.String.toString 0 svgNode |> File.Download.string (imageDownloadData.filename ++ "." ++ formatData.extension) formatData.mimeType
                             Debug.todo "SVG download"

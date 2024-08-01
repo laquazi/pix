@@ -1,4 +1,4 @@
-module Quadtree exposing (Quadrant, Quadrants, Quadtree(..), calculateMaxDepth, calculateMaxSize, coord2quadrant, depth2halfSize, depth2size, fitToDepth, fitToMaxDepth, getQuadrant, getQuadrantId, insertAtCoord, merge, optimize, quadnode, repeatQuadtree, scale, scaleOnce, toCoordDict, toListWithDefault, viewQuadtree, viewQuadtreeSvg)
+module Quadtree exposing (Quadrant, Quadrants, Quadtree(..), calculateMaxDepth, calculateMaxSize, coord2quadrant, depth2quadrantSize, depth2size, fitToDepth, fitToMaxDepth, getQuadrant, getQuadrantId, insertAtCoord, merge, optimize, quadnode, repeatQuadtree, scale, scaleOnce, toCoordDict, toListWithDefault, viewQuadtree)
 
 import Array exposing (Array)
 import Array.Extra
@@ -57,7 +57,7 @@ merge f aTree bTree =
             Array.Extra.map2 (merge f) a b |> QuadNode
 
 
-mapQuadrants : (Quadrant -> Quadtree a -> Quadtree b) -> Quadrants a -> Quadrants b
+mapQuadrants : (Quadrant -> Quadtree a -> b) -> Quadrants a -> Array b
 mapQuadrants f quadrants =
     Array.Extra.map2 f
         (Array.fromList
@@ -104,20 +104,25 @@ setQuadrant quadrant quadtree quadrants =
         |> Array.set (getQuadrantId quadrant) quadtree
 
 
-depth2halfSize : Int -> Int
-depth2halfSize depth =
+depth2size : Int -> Int
+depth2size depth =
+    2 ^ depth
+
+
+depth2quadrantSize : Int -> Int
+depth2quadrantSize depth =
     (2 ^ depth) // 2
 
 
 coord2quadrant : Point -> Int -> Quadrant
-coord2quadrant { x, y } halfSize =
-    if x < halfSize && y < halfSize then
+coord2quadrant { x, y } quadrantSize =
+    if x < quadrantSize && y < quadrantSize then
         TopLeft
 
-    else if x >= halfSize && y < halfSize then
+    else if x >= quadrantSize && y < quadrantSize then
         TopRight
 
-    else if x < halfSize && y >= halfSize then
+    else if x < quadrantSize && y >= quadrantSize then
         BottomLeft
 
     else
@@ -133,17 +138,17 @@ insertAtCoord insertTree ({ x, y } as coord) depth tree =
 
     else
         let
-            halfSize =
-                depth2halfSize depth
+            quadrantSize =
+                depth2quadrantSize depth
 
             newDepth =
                 depth - 1
 
             newCoord =
-                { x = x |> remainderBy halfSize, y = y |> remainderBy halfSize }
+                { x = x |> remainderBy quadrantSize, y = y |> remainderBy quadrantSize }
 
             quadrant =
-                coord2quadrant coord halfSize
+                coord2quadrant coord quadrantSize
         in
         case tree of
             QuadNode quadrants ->
@@ -184,11 +189,6 @@ calculateMaxDepth0 depth tree =
 calculateMaxDepth : Quadtree a -> Int
 calculateMaxDepth tree =
     calculateMaxDepth0 0 tree
-
-
-depth2size : Int -> Int
-depth2size depth =
-    2 ^ depth
 
 
 calculateMaxSize : Quadtree a -> Int
@@ -290,7 +290,7 @@ fitToMaxDepth tree =
 
 
 toCoordDict0 : ( Int, Int ) -> Int -> Quadtree a -> Dict ( Int, Int ) (Maybe a)
-toCoordDict0 ( x, y ) offset tree =
+toCoordDict0 ( x, y ) size tree =
     case tree of
         QuadLeaf data ->
             Dict.singleton ( x, y ) (Just data)
@@ -299,32 +299,36 @@ toCoordDict0 ( x, y ) offset tree =
             Dict.singleton ( x, y ) Nothing
 
         QuadNode quadrants ->
+            let
+                quadrantSize =
+                    size // 2
+            in
             quadrants
-                |> Array.indexedMap
-                    (\i quadrant ->
+                |> mapQuadrants
+                    (\pos quadrant ->
                         let
                             coord =
-                                case i of
-                                    0 ->
+                                case pos of
+                                    TopLeft ->
                                         ( x, y )
 
-                                    1 ->
-                                        ( x + offset, y )
+                                    TopRight ->
+                                        ( x + quadrantSize, y )
 
-                                    2 ->
-                                        ( x, y + offset )
+                                    BottomLeft ->
+                                        ( x, y + quadrantSize )
 
-                                    _ ->
-                                        ( x + offset, y + offset )
+                                    BottomRight ->
+                                        ( x + quadrantSize, y + quadrantSize )
                         in
-                        quadrant |> toCoordDict0 coord (offset // 2)
+                        quadrant |> toCoordDict0 coord quadrantSize
                     )
                 |> Array.foldl (\dict acc -> Dict.union dict acc) Dict.empty
 
 
 toCoordDict : Int -> Quadtree a -> Dict ( Int, Int ) (Maybe a)
 toCoordDict maxSize tree =
-    tree |> toCoordDict0 ( 0, 0 ) (maxSize // 2)
+    tree |> toCoordDict0 ( 0, 0 ) maxSize
 
 
 toListWithDefault : a -> Quadtree a -> ( Int, List a )
@@ -345,10 +349,10 @@ toListWithDefault default tree =
         |> (\x -> ( maxSize, x ))
 
 
-viewQuadLeaf0 offsetX offsetY maxSize n color =
+viewQuadLeaf0 offsetX offsetY quadrantSize color =
     let
         sizeStr =
-            String.fromFloat (maxSize / (2 ^ n))
+            String.fromFloat quadrantSize
     in
     rect
         [ fill (Color.toCssString color)
@@ -361,41 +365,46 @@ viewQuadLeaf0 offsetX offsetY maxSize n color =
         []
 
 
-viewQuadtree0 offsetX offsetY maxSize n emptyColor tree =
+viewQuadtree0 offsetX offsetY size emptyColor tree =
     case tree of
         QuadEmpty ->
-            emptyColor |> viewQuadLeaf0 offsetX offsetY maxSize n
+            emptyColor |> viewQuadLeaf0 offsetX offsetY size
 
         QuadLeaf color ->
-            color |> viewQuadLeaf0 offsetX offsetY maxSize n
+            color |> viewQuadLeaf0 offsetX offsetY size
 
         QuadNode quadrants ->
             let
-                o =
-                    maxSize / (2 ^ (n + 1))
+                quadrantSize =
+                    size / 2
             in
             g
                 []
-                [ viewQuadtree0 offsetX offsetY maxSize (n + 1) emptyColor (getQuadrant TopLeft quadrants)
-                , viewQuadtree0 (offsetX + o) offsetY maxSize (n + 1) emptyColor (getQuadrant TopRight quadrants)
-                , viewQuadtree0 offsetX (offsetY + o) maxSize (n + 1) emptyColor (getQuadrant BottomLeft quadrants)
-                , viewQuadtree0 (offsetX + o) (offsetY + o) maxSize (n + 1) emptyColor (getQuadrant BottomRight quadrants)
+                [ viewQuadtree0 offsetX offsetY quadrantSize emptyColor (getQuadrant TopLeft quadrants)
+                , viewQuadtree0 (offsetX + quadrantSize) offsetY quadrantSize emptyColor (getQuadrant TopRight quadrants)
+                , viewQuadtree0 offsetX (offsetY + quadrantSize) quadrantSize emptyColor (getQuadrant BottomLeft quadrants)
+                , viewQuadtree0 (offsetX + quadrantSize) (offsetY + quadrantSize) quadrantSize emptyColor (getQuadrant BottomRight quadrants)
                 ]
 
 
-viewQuadtreeSvg maxSize emptyColor tree =
-    svg
-        [ width (String.fromFloat maxSize)
-        , height (String.fromFloat maxSize)
-        ]
-        [ viewQuadtree0 0 0 maxSize 0 emptyColor tree ]
+
+--toSvg maxSize emptyColor tree =
+--    svg
+--        [ width (String.fromFloat maxSize)
+--        , height (String.fromFloat maxSize)
+--        ]
+--        [ toSvg0 0 0 maxSize 0 emptyColor tree ]
 
 
 viewQuadtree maxSize emptyColor tree =
     div
         [ style "position" "relative"
-        , style "width" (String.fromFloat maxSize ++ "px")
-        , style "height" (String.fromFloat maxSize ++ "px")
+        , style "width" (px maxSize)
+        , style "height" (px maxSize)
         ]
-        [ viewQuadtreeSvg maxSize emptyColor tree
+        [ svg
+            [ width "100%"
+            , height "100%"
+            ]
+            [ viewQuadtree0 0 0 maxSize emptyColor tree ]
         ]
