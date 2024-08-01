@@ -57,3 +57,7 @@ encodeDownloadSvgAsPng elementId filename size =
 --                (\error -> Log ( "Error", JD.errorToString error ))
 --                Draw
 --    )
+
+
+downloadViaPorts model =
+    encodeDownloadSvgAsPng "canvas" "pix" model.size |> downloadSvgAsPng

@@ -2,6 +2,7 @@ module Main exposing (..)
 
 import Array
 import Browser
+import Bytes exposing (Bytes)
 import Canvas exposing (Canvas, CanvasLayer, layerEmpty)
 import Color exposing (Color)
 import Color.Blending
@@ -9,10 +10,13 @@ import Common exposing (..)
 import Config exposing (config)
 import Debug exposing (log)
 import Dict
+import File.Download
 import Html exposing (Html, button, div, text)
 import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
 import Html.Events.Extra.Pointer as Pointer
+import Image
+import Image.Color
 import List.Extra
 import Ports
 import Quadtree exposing (..)
@@ -44,9 +48,55 @@ type Tool
     | Eraser
 
 
+type alias FileFormatData =
+    { extension : String
+    , mimeType : String
+    }
+
+
+type ImageFormat
+    = Png FileFormatData
+
+
+type alias ImageDownloadData =
+    { format : ImageFormat
+    , scale : Int
+    , filename : String
+    }
+
+
 px : Float -> String
 px x =
     String.fromFloat x ++ "px"
+
+
+coordVisual2Data : Point -> Int -> Int -> Point
+coordVisual2Data { x, y } scale size =
+    { x = (x * (2 ^ scale)) // size
+    , y = (y * (2 ^ scale)) // size
+    }
+
+
+doAtCoord : Point -> (Point -> Int -> Quadtree Color -> Quadtree Color) -> Model -> Canvas
+doAtCoord visualCoord f model =
+    model.canvas
+        |> Canvas.updateSelectedLayer
+            (\layer ->
+                { layer
+                    | data =
+                        f (coordVisual2Data visualCoord model.scale model.size) model.scale layer.data
+                }
+            )
+
+
+logCmd : String -> a -> Cmd Msg
+logCmd msg data =
+    Log ( msg, Debug.toString data ) |> cmd
+
+
+savePng : String -> Bytes -> Cmd msg
+savePng filename bytes =
+    File.Download.bytes (filename ++ ".png") "image/png" bytes
 
 
 
@@ -99,30 +149,6 @@ init _ =
     )
 
 
-coordVisual2Data : Point -> Int -> Int -> Point
-coordVisual2Data { x, y } scale size =
-    { x = (x * (2 ^ scale)) // size
-    , y = (y * (2 ^ scale)) // size
-    }
-
-
-doAtCoord : Point -> (Point -> Int -> Quadtree Color -> Quadtree Color) -> Model -> Canvas
-doAtCoord visualCoord f model =
-    model.canvas
-        |> Canvas.updateSelectedLayer
-            (\layer ->
-                { layer
-                    | data =
-                        f (coordVisual2Data visualCoord model.scale model.size) model.scale layer.data
-                }
-            )
-
-
-logCmd : String -> a -> Cmd Msg
-logCmd msg data =
-    Log ( msg, Debug.toString data ) |> cmd
-
-
 
 -- UPDATE
 
@@ -143,7 +169,7 @@ type Msg
     | RemoveSelectedLayer
     | TryUseTool Point
     | ChangeTool Tool
-    | DownloadCanvasAsPng
+    | DownloadCanvas ImageDownloadData
     | Test
 
 
@@ -289,10 +315,28 @@ update msg model =
             in
             ( { model | canvas = newCanvas }, Cmd.none )
 
-        DownloadCanvasAsPng ->
-            -- TODO: use this once it is actually possible to change size on the js side: `size = 2 ^ ({ canvas | layers = canvas.layers |> List.filter .isVisible } |> Canvas.mergeLayers |> Quadtree.optimize |> Quadtree.calculateMaxDepth )`
+        DownloadCanvas imageDownloadData ->
+            let
+                canvas =
+                    model.canvas
+
+                optimizedTree =
+                    { canvas | layers = canvas.layers |> List.filter .isVisible }
+                        |> Canvas.mergeLayers
+                        |> Quadtree.optimize
+
+                -- max quadtree size = min image size
+                ( minImageSize, imageData ) =
+                    optimizedTree
+                        |> Quadtree.toListWithDefault colorTransparent
+
+                test =
+                    Image.Color.fromList minImageSize imageData
+                        |> Image.toPng
+                        |> savePng "pix"
+            in
             ( model
-            , Ports.encodeDownloadSvgAsPng "canvas" "pix" model.size |> Ports.downloadSvgAsPng
+            , Cmd.none
             )
 
         Test ->
@@ -309,7 +353,11 @@ update msg model =
                 ( minImageSize, imageData ) =
                     optimizedTree
                         |> Quadtree.toListWithDefault colorTransparent
-                        |> log "sdjgf"
+
+                test =
+                    Image.Color.fromList minImageSize imageData
+                        |> Image.toPng
+                        |> savePng "pix"
             in
             ( model
               --, [ test ] |> logCmd "Test"
@@ -468,7 +516,8 @@ viewMsgButtons model =
         , button [ onClick RulerVisibleToggle ] [ text "Toggle Ruler" ]
         , button [ onClick (ChangeTool Pencil) ] [ text "✎" ]
         , button [ onClick (ChangeTool Eraser) ] [ text "▱" ]
-        , button [ onClick DownloadCanvasAsPng ] [ text "⇓" ]
+
+        --, button [ onClick DownloadCanvasAsPng ] [ text "⇓" ]
         , button [ onClick Test ] [ text "Test" ]
         ]
 
