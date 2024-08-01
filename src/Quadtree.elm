@@ -1,4 +1,4 @@
-module Quadtree exposing (Quadrant, Quadrants, Quadtree(..), calculateMaxDepth, calculateMaxSize, coord2quadrant, depth2quadrantSize, depth2size, fitToDepth, fitToMaxDepth, getQuadrant, getQuadrantId, insertAtCoord, merge, optimize, quadnode, repeatQuadtree, scale, scaleOnce, toCoordDict, toListWithDefault, viewQuadtree)
+module Quadtree exposing (Quadrant, Quadrants, Quadtree(..), calculateMaxDepth, calculateMaxSize, coord2quadrant, depth2quadrantSize, depth2size, fitToDepth, fitToMaxDepth, getQuadrant, getQuadrantId, insertAtCoord, merge, optimize, quadnode, repeatQuadtree, scale, scaleOnce, toCoordDict, toListWithDefault, toSvgString, viewQuadtree)
 
 import Array exposing (Array)
 import Array.Extra
@@ -12,6 +12,8 @@ import Maybe
 import Maybe.Extra
 import Svg exposing (g, rect, svg)
 import Svg.Attributes exposing (fill, height, shapeRendering, width, x, y)
+import Svg.String
+import Svg.String.Attributes
 
 
 type alias Quadrants a =
@@ -387,15 +389,6 @@ viewQuadtree0 offsetX offsetY size emptyColor tree =
                 ]
 
 
-
---toSvg maxSize emptyColor tree =
---    svg
---        [ width (String.fromFloat maxSize)
---        , height (String.fromFloat maxSize)
---        ]
---        [ toSvg0 0 0 maxSize 0 emptyColor tree ]
-
-
 viewQuadtree maxSize emptyColor tree =
     div
         [ style "position" "relative"
@@ -408,3 +401,50 @@ viewQuadtree maxSize emptyColor tree =
             ]
             [ viewQuadtree0 0 0 maxSize emptyColor tree ]
         ]
+
+
+toSvgStringLeaf0 offsetX offsetY quadrantSize color =
+    let
+        sizeStr =
+            String.fromFloat quadrantSize
+    in
+    Svg.String.rect
+        [ Svg.String.Attributes.fill (Color.toCssString color)
+        , Svg.String.Attributes.width sizeStr
+        , Svg.String.Attributes.height sizeStr
+        , Svg.String.Attributes.x (String.fromFloat offsetX)
+        , Svg.String.Attributes.y (String.fromFloat offsetY)
+        ]
+        []
+
+
+toSvgString0 offsetX offsetY size emptyColor tree =
+    case tree of
+        QuadEmpty ->
+            emptyColor |> toSvgStringLeaf0 offsetX offsetY size
+
+        QuadLeaf color ->
+            color |> toSvgStringLeaf0 offsetX offsetY size
+
+        QuadNode quadrants ->
+            let
+                quadrantSize =
+                    size / 2
+            in
+            Svg.String.g
+                []
+                [ toSvgString0 offsetX offsetY quadrantSize emptyColor (getQuadrant TopLeft quadrants)
+                , toSvgString0 (offsetX + quadrantSize) offsetY quadrantSize emptyColor (getQuadrant TopRight quadrants)
+                , toSvgString0 offsetX (offsetY + quadrantSize) quadrantSize emptyColor (getQuadrant BottomLeft quadrants)
+                , toSvgString0 (offsetX + quadrantSize) (offsetY + quadrantSize) quadrantSize emptyColor (getQuadrant BottomRight quadrants)
+                ]
+
+
+toSvgString maxSize emptyColor tree =
+    Svg.String.svg
+        [ Svg.String.Attributes.attribute "xmlns" "http://www.w3.org/2000/svg"
+        , Svg.String.Attributes.width (String.fromFloat maxSize)
+        , Svg.String.Attributes.height (String.fromFloat maxSize)
+        ]
+        [ toSvgString0 0 0 maxSize emptyColor tree ]
+        |> Svg.String.toString 0

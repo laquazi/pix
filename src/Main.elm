@@ -7,7 +7,7 @@ import Canvas exposing (Canvas, CanvasLayer, layerEmpty)
 import Color exposing (Color)
 import Color.Blending
 import Common exposing (..)
-import Config exposing (config)
+import Config exposing (..)
 import Debug exposing (log)
 import Dict
 import File.Download
@@ -133,7 +133,7 @@ init _ =
       , size = 512
       , color = Color.black
       , tool = Pencil
-      , colorpalette = config.defaultColorpalette
+      , colorpalette = defaultColorpalette
       , canvasPointer = { isInside = False, isPressed = False }
       }
     , Cmd.none
@@ -328,7 +328,6 @@ update msg model =
                             optimizedTree |> downloadRasterImage (imageFormatData Gif) imageDownloadData Image.toGif
 
                         Svg ->
-                            -- TODO: SVG download
                             let
                                 -- max quadtree size = min image size
                                 minImageSize =
@@ -336,13 +335,10 @@ update msg model =
 
                                 formatData =
                                     imageFormatData Svg
-
-                                --svgNode =
-                                --    optimizedTree
-                                --        |> viewQuadtreeSvg (toFloat (minImageSize * (2 ^ imageDownloadData.scale))) colorTransparent
                             in
-                            --Svg.String.toString 0 svgNode |> File.Download.string (imageDownloadData.filename ++ "." ++ formatData.extension) formatData.mimeType
-                            Debug.todo "SVG download"
+                            optimizedTree
+                                |> Quadtree.toSvgString (toFloat (minImageSize * (2 ^ imageDownloadData.scale))) colorTransparent
+                                |> File.Download.string (imageDownloadData.filename ++ "." ++ formatData.extension) formatData.mimeType
             in
             ( model
             , downloadCmd
@@ -524,7 +520,10 @@ viewMsgButtons model =
         , button [ onClick RulerVisibleToggle ] [ text "Toggle Ruler" ]
         , button [ onClick (ChangeTool Pencil) ] [ text "✎" ]
         , button [ onClick (ChangeTool Eraser) ] [ text "▱" ]
-        , button [ onClick (DownloadCanvas config.defaultDownloadImageData) ] [ text "⇓" ]
+        , button [ onClick (DownloadCanvas { defaultDownloadImageData | format = Png }) ] [ text "⇓Png" ]
+        , button [ onClick (DownloadCanvas { defaultDownloadImageData | format = Svg }) ] [ text "⇓Svg" ]
+        , button [ onClick (DownloadCanvas { defaultDownloadImageData | format = Bmp }) ] [ text "⇓Bmp" ]
+        , button [ onClick (DownloadCanvas { defaultDownloadImageData | format = Gif }) ] [ text "⇓Gif" ]
         , button [ onClick Test ] [ text "Test" ]
         ]
 
@@ -583,7 +582,7 @@ viewLayers model =
     div
         [ style "margin" (String.fromFloat config.defaultMargin)
         , style "position" "absolute"
-        , style "top" "20px"
+        , style "top" "44px"
         , style "left" (px (toFloat model.size + config.defaultMargin * 2))
         , style "background-color" (Color.toCssString config.color.opaqueBackground)
         ]
