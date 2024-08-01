@@ -15,7 +15,7 @@ import Html exposing (Html, button, div, text)
 import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
 import Html.Events.Extra.Pointer as Pointer
-import Image
+import Image exposing (Image)
 import Image.Color
 import List.Extra
 import Ports
@@ -46,16 +46,6 @@ type alias PointerData =
 type Tool
     = Pencil
     | Eraser
-
-
-type alias FileFormatData =
-    { extension : String
-    , mimeType : String
-    }
-
-
-type ImageFormat
-    = Png FileFormatData
 
 
 type alias ImageDownloadData =
@@ -94,9 +84,27 @@ logCmd msg data =
     Log ( msg, Debug.toString data ) |> cmd
 
 
-savePng : String -> Bytes -> Cmd msg
-savePng filename bytes =
-    File.Download.bytes (filename ++ ".png") "image/png" bytes
+downloadRasterImage format imageDownloadData tree =
+    let
+        formatData =
+            imageFormatData format
+    in
+    -- max quadtree size = min image size
+    tree
+        |> Quadtree.scale imageDownloadData.scale
+        |> Quadtree.toListWithDefault colorTransparent
+        |> (\( minImageSize, imageData ) -> imageData |> Image.Color.fromList minImageSize)
+        |> (case format of
+                Png ->
+                    Image.toPng
+
+                Bmp ->
+                    Image.toBmp
+
+                Gif ->
+                    Image.toGif
+           )
+        |> File.Download.bytes (imageDownloadData.filename ++ "." ++ formatData.extension) formatData.mimeType
 
 
 
@@ -325,18 +333,23 @@ update msg model =
                         |> Canvas.mergeLayers
                         |> Quadtree.optimize
 
-                -- max quadtree size = min image size
-                ( minImageSize, imageData ) =
-                    optimizedTree
-                        |> Quadtree.toListWithDefault colorTransparent
-
-                test =
-                    Image.Color.fromList minImageSize imageData
-                        |> Image.toPng
-                        |> savePng "pix"
+                downloadCmd =
+                    case imageDownloadData.format of
+                        Png ->
+                            let
+                                formatData =
+                                    imageFormatData Png
+                            in
+                            -- max quadtree size = min image size
+                            optimizedTree
+                                |> scale imageDownloadData.scale
+                                |> Quadtree.toListWithDefault colorTransparent
+                                |> (\( minImageSize, imageData ) -> imageData |> Image.Color.fromList minImageSize)
+                                |> Image.toPng
+                                |> File.Download.bytes (imageDownloadData.filename ++ "." ++ formatData.extension) formatData.mimeType
             in
             ( model
-            , Cmd.none
+            , downloadCmd
             )
 
         Test ->
@@ -357,7 +370,6 @@ update msg model =
                 test =
                     Image.Color.fromList minImageSize imageData
                         |> Image.toPng
-                        |> savePng "pix"
             in
             ( model
               --, [ test ] |> logCmd "Test"
@@ -516,8 +528,7 @@ viewMsgButtons model =
         , button [ onClick RulerVisibleToggle ] [ text "Toggle Ruler" ]
         , button [ onClick (ChangeTool Pencil) ] [ text "✎" ]
         , button [ onClick (ChangeTool Eraser) ] [ text "▱" ]
-
-        --, button [ onClick DownloadCanvasAsPng ] [ text "⇓" ]
+        , button [ onClick (DownloadCanvas config.defaultDownloadImageData) ] [ text "⇓" ]
         , button [ onClick Test ] [ text "Test" ]
         ]
 

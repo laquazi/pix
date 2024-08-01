@@ -65,7 +65,7 @@ var app = window.Elm.Main.init({
 //});
 
 
-app.ports.downloadSvgAsPng.subscribe(function (message) {
-  const element = document.getElementById(message.elementId);
-  downloadSvg(element, message.filename, message.size.x, message.size.y);
-});
+//app.ports.downloadSvgAsPng.subscribe(function (message) {
+//  const element = document.getElementById(message.elementId);
+//  downloadSvg(element, message.filename, message.size.x, message.size.y);
+//});
