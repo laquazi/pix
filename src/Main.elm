@@ -10,7 +10,9 @@ import Common exposing (..)
 import Config exposing (..)
 import Debug exposing (log)
 import Dict
+import File exposing (File)
 import File.Download
+import File.Select
 import Html exposing (Html, button, div, text)
 import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
@@ -23,6 +25,7 @@ import Quadtree exposing (..)
 import Svg exposing (defs, pattern, rect, svg)
 import Svg.Attributes exposing (fill, height, id, patternUnits, shapeRendering, stroke, strokeWidth, width, x, y)
 import Svg.String
+import Task
 
 
 quad0 =
@@ -161,6 +164,9 @@ type Msg
     | TryUseTool Point
     | ChangeTool Tool
     | DownloadCanvas ImageDownloadData
+    | UploadCanvasRequest
+    | UploadCanvasReady File
+    | UploadCanvasLoaded (Maybe Image)
     | Test
 
 
@@ -316,6 +322,7 @@ update msg model =
                         |> Canvas.mergeLayers
                         |> Quadtree.optimize
 
+                -- FIXME: do bmp and gif support transparency? choose another color if not. gif and svg dont work with big files. DON'T scale quadtree, it gets slow real fast, maybe ditch support for anything except png, it seems to work best
                 downloadCmd =
                     case imageDownloadData.format of
                         Png ->
@@ -344,24 +351,34 @@ update msg model =
             , downloadCmd
             )
 
+        UploadCanvasRequest ->
+            ( model, File.Select.file [ imageFormatData Png |> .mimeType ] UploadCanvasReady )
+
+        UploadCanvasReady file ->
+            let
+                task =
+                    Debug.todo ""
+
+                --File.toBytes file |> Task.map (\x -> Image.decode x |> Maybe.map)
+            in
+            ( model, Task.perform UploadCanvasLoaded task )
+
+        UploadCanvasLoaded maybeImage ->
+            let
+                fileaskdas =
+                    maybeImage
+            in
+            ( model
+            , Cmd.none
+            )
+
         Test ->
             let
-                canvas =
-                    model.canvas
-
-                optimizedTree =
-                    { canvas | layers = canvas.layers |> List.filter .isVisible }
-                        |> Canvas.mergeLayers
-                        |> Quadtree.optimize
-
-                -- max quadtree size = min image size
-                ( minImageSize, imageData ) =
-                    optimizedTree
-                        |> Quadtree.toListWithDefault colorTransparent
+                d =
+                    List.Extra.initialize 8 Just |> log "d"
 
                 test =
-                    Image.Color.fromList minImageSize imageData
-                        |> Image.toPng
+                    d |> Quadtree.fromList 4 |> log "test"
             in
             ( model
               --, [ test ] |> logCmd "Test"

@@ -1,4 +1,4 @@
-module Quadtree exposing (Quadrant, Quadrants, Quadtree(..), calculateMaxDepth, calculateMaxSize, coord2quadrant, depth2quadrantSize, depth2size, fitToDepth, fitToMaxDepth, getQuadrant, getQuadrantId, insertAtCoord, merge, optimize, quadnode, repeatQuadtree, scale, scaleOnce, toCoordDict, toListWithDefault, toSvgString, viewQuadtree)
+module Quadtree exposing (Quadrant, Quadrants, Quadtree(..), calculateMaxDepth, calculateMaxSize, coord2quadrant, depth2quadrantSize, depth2size, fitToDepth, fitToMaxDepth, fromList, getQuadrant, getQuadrantId, insertAtCoord, merge, optimize, quadnode, repeatQuadtree, scale, scaleOnce, toCoordDict, toListWithDefault, toSvgString, viewQuadtree)
 
 import Array exposing (Array)
 import Array.Extra
@@ -8,6 +8,7 @@ import Dict exposing (Dict)
 import Html exposing (Html, div)
 import Html.Attributes exposing (style)
 import List.Extra
+import List.Split
 import Maybe
 import Maybe.Extra
 import Svg exposing (g, rect, svg)
@@ -331,6 +332,94 @@ toCoordDict0 ( x, y ) size tree =
 toCoordDict : Int -> Quadtree a -> Dict ( Int, Int ) (Maybe a)
 toCoordDict maxSize tree =
     tree |> toCoordDict0 ( 0, 0 ) maxSize
+
+
+
+--
+--fromList : List (Maybe a) -> Maybe (Quadtree a)
+--fromList list =
+--    if (list |> List.length |> remainderBy 4) /= 0 then
+--        Nothing
+--
+--    else
+--        List.Split.chunksOfLeft 4 list |> List.map
+
+
+fromCoordDict0 : ( Int, Int ) -> Int -> Dict ( Int, Int ) (Maybe a) -> Quadtree a
+fromCoordDict0 ( x, y ) depth dict =
+    let
+        quadrantSize =
+            depth2quadrantSize depth
+    in
+    if depth <= 0 then
+        dict
+            |> Dict.get ( x, y )
+            |> Maybe.Extra.unwrap QuadEmpty
+                (Maybe.Extra.unwrap QuadEmpty QuadLeaf)
+
+    else
+        [ fromCoordDict0 ( x, y ) (depth - 1) dict
+        , fromCoordDict0 ( x + quadrantSize, y ) (depth - 1) dict
+        , fromCoordDict0 ( x, y + quadrantSize ) (depth - 1) dict
+        , fromCoordDict0 ( x + quadrantSize, y + quadrantSize ) (depth - 1) dict
+        ]
+            |> Array.fromList
+            |> QuadNode
+
+
+fromCoordDict : Int -> Dict ( Int, Int ) (Maybe a) -> Quadtree a
+fromCoordDict depth dict =
+    fromCoordDict0 ( 0, 0 ) depth dict
+
+
+{-| FIXME: sizes are wrong, every time it quadruples the # of nodes
+-}
+fromList : Int -> List (Maybe a) -> Quadtree a
+fromList width list =
+    let
+        len =
+            list
+                |> List.length
+
+        quadtreeSize =
+            toFloat len
+                |> (/) (toFloat width)
+                |> max (toFloat width)
+                |> ceiling
+                |> (\x ->
+                        if (x |> remainderBy 2) == 0 then
+                            x
+
+                        else
+                            x + 1
+                   )
+
+        quadtreeDepth =
+            quadtreeSize |> toFloat |> logBase 2 |> round
+
+        paddingLen =
+            ((toFloat quadtreeSize ^ 2) - toFloat len) |> round
+
+        paddingList =
+            List.Extra.initialize paddingLen (\_ -> Nothing)
+
+        coordDict =
+            list
+                |> List.append paddingList
+                |> List.indexedMap
+                    (\i v ->
+                        let
+                            x =
+                                i |> remainderBy width
+
+                            y =
+                                i // width
+                        in
+                        ( ( x, y ), v )
+                    )
+                |> Dict.fromList
+    in
+    coordDict |> fromCoordDict quadtreeDepth
 
 
 toListWithDefault : a -> Quadtree a -> ( Int, List a )
