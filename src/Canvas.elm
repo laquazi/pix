@@ -1,7 +1,7 @@
 module Canvas exposing (..)
 
 import Color exposing (Color)
-import Common exposing (colorBlendingNormal)
+import Common exposing (colorBlendingNormal, listInsertAt)
 import List.Extra
 import Parser exposing ((|.), (|=), Parser)
 import Quadtree exposing (Quadtree(..))
@@ -66,10 +66,10 @@ parserLayerName =
         |= Parser.int
 
 
-addNewLayer : Canvas -> Canvas
-addNewLayer canvas =
+addLayer : Quadtree Color -> Canvas -> Canvas
+addLayer data canvas =
     let
-        index =
+        nameIndex =
             canvas.layers
                 |> List.filterMap
                     (\layer -> Parser.run parserLayerName layer.name |> Result.toMaybe)
@@ -77,9 +77,20 @@ addNewLayer canvas =
                 |> Maybe.withDefault 0
 
         newLayer =
-            { layerEmpty | name = "Layer " ++ String.fromInt (index + 1) }
+            { layerEmpty
+                | name = "Layer " ++ String.fromInt (nameIndex + 1)
+                , data = data
+            }
     in
-    { canvas | layers = canvas.layers ++ [ newLayer ] }
+    { canvas
+        | layers = canvas.layers |> listInsertAt (canvas.selectedLayerIndex + 1) newLayer
+        , selectedLayerIndex = canvas.selectedLayerIndex + 1
+    }
+
+
+addEmptyLayer : Canvas -> Canvas
+addEmptyLayer canvas =
+    addLayer layerEmpty.data canvas
 
 
 removeLayer : Int -> Canvas -> Canvas

@@ -3,6 +3,7 @@ module Common exposing (..)
 import Array exposing (Array)
 import Color exposing (Color)
 import Dict exposing (Dict)
+import List.Extra
 import Task
 
 
@@ -82,3 +83,7 @@ dictFromArray assocs =
 px : Float -> String
 px x =
     String.fromFloat x ++ "px"
+
+
+listInsertAt index data list =
+    list |> List.Extra.splitAt index |> (\( a, b ) -> a ++ [ data ] ++ b)

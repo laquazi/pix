@@ -375,10 +375,10 @@ update msg model =
         Test ->
             let
                 d =
-                    List.Extra.initialize 8 Just |> log "d"
+                    List.Extra.initialize 17 Just
 
                 test =
-                    d |> Quadtree.fromList 4 |> log "test"
+                    d |> Quadtree.fromList 4
             in
             ( model
               --, [ test ] |> logCmd "Test"

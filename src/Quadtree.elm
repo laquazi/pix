@@ -372,40 +372,21 @@ fromCoordDict depth dict =
     fromCoordDict0 ( 0, 0 ) depth dict
 
 
-{-| FIXME: sizes are wrong, every time it quadruples the # of nodes
--}
-fromList : Int -> List (Maybe a) -> Quadtree a
-fromList width list =
+fromList : List (Maybe a) -> Quadtree a
+fromList list =
     let
-        len =
+        quadtreeDepth =
             list
                 |> List.length
-
-        quadtreeSize =
-            toFloat len
-                |> (/) (toFloat width)
-                |> max (toFloat width)
+                |> toFloat
+                |> logBase 4
                 |> ceiling
-                |> (\x ->
-                        if (x |> remainderBy 2) == 0 then
-                            x
 
-                        else
-                            x + 1
-                   )
-
-        quadtreeDepth =
-            quadtreeSize |> toFloat |> logBase 2 |> round
-
-        paddingLen =
-            ((toFloat quadtreeSize ^ 2) - toFloat len) |> round
-
-        paddingList =
-            List.Extra.initialize paddingLen (\_ -> Nothing)
+        width =
+            4 ^ (quadtreeDepth - 1)
 
         coordDict =
             list
-                |> List.append paddingList
                 |> List.indexedMap
                     (\i v ->
                         let
