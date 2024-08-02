@@ -1,6 +1,7 @@
 module Main exposing (..)
 
 import Array
+import Array.Extra
 import Browser
 import Bytes exposing (Bytes)
 import Canvas exposing (Canvas, CanvasLayer, layerEmpty)
@@ -80,7 +81,7 @@ doAtCoord visualCoord f model =
 
 logCmd : String -> a -> Cmd Msg
 logCmd msg data =
-    Log ( msg, Debug.toString data ) |> cmd
+    data |> Debug.toString |> Log msg |> cmd
 
 
 downloadRasterImage imageFormatData imageDownloadData image2bytes tree =
@@ -150,7 +151,7 @@ init _ =
 type Msg
     = Reset
     | Noop
-    | Log ( String, String )
+    | Log String String
     | ChangeScale Int
     | ChangeColor Color
     | RulerVisibleToggle
@@ -164,9 +165,9 @@ type Msg
     | TryUseTool Point
     | ChangeTool Tool
     | DownloadCanvas ImageDownloadData
-    | UploadCanvasRequest
+    | UploadCanvas
     | UploadCanvasReady File
-    | UploadCanvasLoaded (Maybe Image)
+    | UploadCanvasLoaded (Maybe (Quadtree Color))
     | Test
 
 
@@ -258,7 +259,7 @@ update msg model =
             else
                 ( model, Cmd.none )
 
-        Log ( tag, value ) ->
+        Log tag value ->
             let
                 _ =
                     log tag value
@@ -298,11 +299,9 @@ update msg model =
             let
                 newCanvas =
                     model.canvas
-                        |> Canvas.addNewLayer
+                        |> Canvas.addEmptyLayer
             in
-            ( { model | canvas = newCanvas }
-            , ChangeSelectedLayer (List.length model.canvas.layers) |> cmd
-            )
+            ( { model | canvas = newCanvas }, Cmd.none )
 
         RemoveSelectedLayer ->
             let
@@ -351,34 +350,59 @@ update msg model =
             , downloadCmd
             )
 
-        UploadCanvasRequest ->
-            ( model, File.Select.file [ imageFormatData Png |> .mimeType ] UploadCanvasReady )
+        UploadCanvas ->
+            ( model, File.Select.file ([ Png, Bmp ] |> List.map (imageFormatData >> .mimeType)) UploadCanvasReady )
 
         UploadCanvasReady file ->
             let
-                task =
-                    Debug.todo ""
+                image2quadtree : Image -> Quadtree Color
+                image2quadtree image =
+                    image
+                        |> Image.Color.toList
+                        |> List.map
+                            (\color ->
+                                if (color |> Color.toRgba |> .alpha) == 0 then
+                                    Nothing
 
-                --File.toBytes file |> Task.map (\x -> Image.decode x |> Maybe.map)
+                                else
+                                    Just color
+                            )
+                        |> Quadtree.fromList
+
+                task =
+                    File.toBytes file |> Task.map (\x -> Image.decode x |> Maybe.map image2quadtree)
             in
             ( model, Task.perform UploadCanvasLoaded task )
 
-        UploadCanvasLoaded maybeImage ->
+        UploadCanvasLoaded maybeQuadtree ->
             let
-                fileaskdas =
-                    maybeImage
+                canvas =
+                    model.canvas
+
+                newCanvas =
+                    maybeQuadtree
+                        |> Maybe.map
+                            (\quadtree -> canvas |> Canvas.addLayer quadtree)
+                        |> Maybe.withDefault canvas
             in
-            ( model
-            , Cmd.none
-            )
+            ( { model | canvas = newCanvas }, Cmd.none )
 
         Test ->
             let
-                d =
-                    List.Extra.initialize 17 Just
+                l =
+                    List.Extra.initialize 8 identity |> log "l"
+
+                a =
+                    l |> Array.fromList |> log "a"
+
+                l1 =
+                    l |> listInsertAt 3 69 |> log "l1"
+
+                a1 =
+                    a |> Array.Extra.insertAt 3 69 |> log "a1"
 
                 test =
-                    d |> Quadtree.fromList 4
+                    l1 == Array.toList a1 |> log "test"
             in
             ( model
               --, [ test ] |> logCmd "Test"
@@ -541,6 +565,7 @@ viewMsgButtons model =
         , button [ onClick (DownloadCanvas { defaultDownloadImageData | format = Svg }) ] [ text "⇓Svg" ]
         , button [ onClick (DownloadCanvas { defaultDownloadImageData | format = Bmp }) ] [ text "⇓Bmp" ]
         , button [ onClick (DownloadCanvas { defaultDownloadImageData | format = Gif }) ] [ text "⇓Gif" ]
+        , button [ onClick UploadCanvas ] [ text "⇑" ]
         , button [ onClick Test ] [ text "Test" ]
         ]
 
