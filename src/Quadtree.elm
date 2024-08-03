@@ -4,6 +4,7 @@ import Array exposing (Array)
 import Array.Extra
 import Color exposing (Color)
 import Common exposing (..)
+import Debug exposing (log)
 import Dict exposing (Dict)
 import Html exposing (Html, div)
 import Html.Attributes exposing (style)
@@ -334,17 +335,6 @@ toCoordDict maxSize tree =
     tree |> toCoordDict0 ( 0, 0 ) maxSize
 
 
-
---
---fromList : List (Maybe a) -> Maybe (Quadtree a)
---fromList list =
---    if (list |> List.length |> remainderBy 4) /= 0 then
---        Nothing
---
---    else
---        List.Split.chunksOfLeft 4 list |> List.map
-
-
 fromCoordDict0 : ( Int, Int ) -> Int -> Dict ( Int, Int ) (Maybe a) -> Quadtree a
 fromCoordDict0 ( x, y ) depth dict =
     let
@@ -372,8 +362,8 @@ fromCoordDict depth dict =
     fromCoordDict0 ( 0, 0 ) depth dict
 
 
-fromList : List (Maybe a) -> Quadtree a
-fromList list =
+fromList : Int -> List (Maybe a) -> Quadtree a
+fromList width list =
     let
         quadtreeDepth =
             list
@@ -382,25 +372,14 @@ fromList list =
                 |> logBase 4
                 |> ceiling
 
-        width =
-            4 ^ (quadtreeDepth - 1)
-
         coordDict =
             list
-                |> List.indexedMap
-                    (\i v ->
-                        let
-                            x =
-                                i |> remainderBy width
-
-                            y =
-                                i // width
-                        in
-                        ( ( x, y ), v )
-                    )
+                |> List.indexedMap (\i v -> ( ( remainderBy width i, i // width ), v ))
                 |> Dict.fromList
     in
-    coordDict |> fromCoordDict quadtreeDepth
+    coordDict
+        |> fromCoordDict quadtreeDepth
+        |> optimize
 
 
 toListWithDefault : a -> Quadtree a -> ( Int, List a )

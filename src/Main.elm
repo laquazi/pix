@@ -19,6 +19,7 @@ import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
 import Html.Events.Extra.Pointer as Pointer
 import Image exposing (Image)
+import Image.Advanced
 import Image.Color
 import List.Extra
 import Ports
@@ -132,7 +133,7 @@ init _ =
                 , { layerEmpty | name = "Layer 1" }
                 ]
             }
-      , scale = 4
+      , scale = 3
       , isRulerVisible = True
       , size = 512
       , color = Color.black
@@ -367,10 +368,10 @@ update msg model =
                                 else
                                     Just color
                             )
-                        |> Quadtree.fromList
+                        |> Quadtree.fromList (image |> Image.dimensions |> .width)
 
                 task =
-                    File.toBytes file |> Task.map (\x -> Image.decode x |> Maybe.map image2quadtree)
+                    File.toBytes file |> Task.map (\x -> Image.decode x |> Maybe.map (Image.Advanced.eval >> image2quadtree))
             in
             ( model, Task.perform UploadCanvasLoaded task )
 
@@ -389,25 +390,10 @@ update msg model =
 
         Test ->
             let
-                l =
-                    List.Extra.initialize 8 identity |> log "l"
-
-                a =
-                    l |> Array.fromList |> log "a"
-
-                l1 =
-                    l |> listInsertAt 3 69 |> log "l1"
-
-                a1 =
-                    a |> Array.Extra.insertAt 3 69 |> log "a1"
-
                 test =
-                    l1 == Array.toList a1 |> log "test"
+                    "test"
             in
-            ( model
-              --, [ test ] |> logCmd "Test"
-            , Cmd.none
-            )
+            ( model, Cmd.none )
 
 
 

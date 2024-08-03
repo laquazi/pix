@@ -9,7 +9,7 @@ import List.Extra
 config =
     { color =
         { background = Color.rgb255 218 218 218
-        , ruler = Color.rgb255 218 218 218
+        , ruler = Color.rgb255 140 140 140
         , opaqueBackground = Color.rgb255 140 140 140
         }
     , zIndex =
