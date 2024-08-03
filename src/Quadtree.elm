@@ -369,7 +369,11 @@ fromList width list =
             list
                 |> List.length
                 |> toFloat
-                |> logBase 4
+                |> (\x -> x / toFloat width)
+                |> max (toFloat width)
+                --|> (\x -> x ^ 2)
+                --|> logBase 4
+                |> logBase 2
                 |> ceiling
 
         coordDict =
