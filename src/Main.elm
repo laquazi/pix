@@ -21,9 +21,11 @@ import Html.Events.Extra.Pointer as Pointer
 import Image exposing (Image)
 import Image.Advanced
 import Image.Color
+import Json.Decode as JD
 import List.Extra
 import Ports
 import Quadtree exposing (..)
+import Result.Extra
 import Svg exposing (defs, pattern, rect, svg)
 import Svg.Attributes exposing (fill, height, id, patternUnits, shapeRendering, stroke, strokeWidth, width, x, y)
 import Svg.String
@@ -159,6 +161,7 @@ type Msg
     | CanvasClearLayer
     | CanvasPointerInside Bool Pointer.Event
     | CanvasPointerPressed Bool Pointer.Event
+    | CanvasPointerMove Pointer.Event
     | ChangeSelectedLayer Int
     | ToggleLayerVisibility Int
     | AddNewLayer
@@ -169,6 +172,7 @@ type Msg
     | UploadCanvas
     | UploadCanvasReady File
     | UploadCanvasLoaded (Maybe (Quadtree Color))
+    | WithCmd Msg (Cmd Msg)
     | Test
 
 
@@ -196,25 +200,25 @@ update msg model =
         RulerVisibleToggle ->
             ( { model | isRulerVisible = not model.isRulerVisible }, Cmd.none )
 
-        CanvasPointerInside bool _ ->
+        CanvasPointerInside isInside _ ->
             let
                 canvasPointer =
                     model.canvasPointer
 
                 newCanvasPointer =
-                    { canvasPointer | isInside = bool }
+                    { canvasPointer | isInside = isInside }
             in
             ( { model | canvasPointer = newCanvasPointer }, Cmd.none )
 
-        CanvasPointerPressed bool event ->
+        CanvasPointerPressed isPressed event ->
             let
                 canvasPointer =
                     model.canvasPointer
 
                 newCanvasPointer =
-                    { canvasPointer | isPressed = bool }
+                    { canvasPointer | isPressed = isPressed }
             in
-            if bool then
+            if isPressed then
                 let
                     ( x, y ) =
                         event.pointer.offsetPos
@@ -228,6 +232,38 @@ update msg model =
                 )
 
             else
+                ( { model | canvasPointer = newCanvasPointer }, Cmd.none )
+
+        CanvasPointerMove event ->
+            let
+                visualCoord =
+                    event.pointer.offsetPos
+                        |> (\( x, y ) ->
+                                { x = ceiling x
+                                , y = ceiling y
+                                }
+                           )
+
+                isBounded =
+                    visualCoord.x < model.size && visualCoord.y < model.size
+
+                canvasPointer =
+                    model.canvasPointer
+            in
+            if isBounded then
+                let
+                    newCanvasPointer =
+                        { canvasPointer | isInside = True }
+                in
+                ( { model | canvasPointer = newCanvasPointer }
+                , TryUseTool visualCoord |> cmd
+                )
+
+            else
+                let
+                    newCanvasPointer =
+                        { canvasPointer | isInside = False }
+                in
                 ( { model | canvasPointer = newCanvasPointer }, Cmd.none )
 
         TryUseTool visualCoord ->
@@ -388,12 +424,41 @@ update msg model =
             in
             ( { model | canvas = newCanvas }, Cmd.none )
 
+        WithCmd withMsg cmd ->
+            let
+                ( newModel, newCmd ) =
+                    update withMsg model
+            in
+            ( newModel, Cmd.batch [ newCmd, cmd ] )
+
         Test ->
             let
                 test =
                     "test"
             in
             ( model, Cmd.none )
+
+
+
+-- PORTS
+
+
+pointerOnDownAttribute : Html.Attribute Msg
+pointerOnDownAttribute =
+    JD.value
+        |> JD.map
+            (\eventJson ->
+                { message =
+                    eventJson
+                        |> JD.decodeValue Pointer.eventDecoder
+                        |> Result.Extra.unpack
+                            (JD.errorToString >> Log "Error")
+                            (\eventDecoded -> eventJson |> Ports.capturePointer |> WithCmd (CanvasPointerPressed True eventDecoded))
+                , stopPropagation = True
+                , preventDefault = True
+                }
+            )
+        |> Html.Events.custom "pointerdown"
 
 
 
@@ -409,8 +474,8 @@ subscriptions _ =
 -- VIEW
 
 
-viewModelDebug model =
-    div [ style "margin" (px config.defaultMargin) ] [ text (Debug.toString model) ]
+viewDebug data =
+    div [ style "margin" (px config.defaultMargin) ] [ text (Debug.toString data) ]
 
 
 viewRuler scale maxSize isVisible =
@@ -428,21 +493,16 @@ viewRuler scale maxSize isVisible =
         , style "height" (px maxSize)
         , id "canvasRuler"
         , style "touch-action" "none"
-        , Pointer.onDown (CanvasPointerPressed True)
+        , pointerOnDownAttribute
+
+        --, Pointer.onDown (CanvasPointerPressed True)
         , Pointer.onUp (CanvasPointerPressed False)
+        , Pointer.onCancel (CanvasPointerPressed False)
         , Pointer.onEnter (CanvasPointerInside True)
         , Pointer.onLeave (CanvasPointerInside False)
-        , Pointer.onMove
-            (\event ->
-                let
-                    ( x, y ) =
-                        event.pointer.offsetPos
-                in
-                TryUseTool
-                    { x = ceiling x
-                    , y = ceiling y
-                    }
-            )
+        , Pointer.onOut (CanvasPointerInside False)
+        , Pointer.onOver (CanvasPointerInside True)
+        , Pointer.onMove CanvasPointerMove
         , if isVisible then
             style "opacity" "100%"
 
@@ -639,6 +699,5 @@ view model =
         , viewSelectedColor model
         , viewColorpalette model
         , viewLayers model
-
-        -- , viewModelDebug model
+        , viewDebug model.canvasPointer
         ]
