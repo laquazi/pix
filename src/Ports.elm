@@ -1,13 +1,28 @@
 port module Ports exposing (..)
 
 import Json.Decode as JD
+import Json.Encode as JE
 
 
 
 --port canvasRulerPressed : (JE.Value -> msg) -> Sub msg
 
 
-port capturePointer : JD.Value -> Cmd msg
+port pointerSetCapture : JD.Value -> Cmd msg
+
+
+port pointerSetCaptureById : JD.Value -> Cmd msg
+
+
+port pointerReleaseCaptureById : JD.Value -> Cmd msg
+
+
+encodeCapturePointerById : Int -> String -> JD.Value
+encodeCapturePointerById pointerId elementId =
+    JE.object
+        [ ( "pointerId", JE.int pointerId )
+        , ( "elementId", JE.string elementId )
+        ]
 
 
 

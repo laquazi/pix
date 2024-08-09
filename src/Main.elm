@@ -3,14 +3,12 @@ module Main exposing (..)
 import Array
 import Array.Extra
 import Browser
-import Bytes exposing (Bytes)
 import Canvas exposing (Canvas, CanvasLayer, layerEmpty)
 import Color exposing (Color)
 import Color.Blending
 import Common exposing (..)
 import Config exposing (..)
 import Debug exposing (log)
-import Dict
 import File exposing (File)
 import File.Download
 import File.Select
@@ -29,7 +27,6 @@ import Result.Extra
 import Set exposing (Set)
 import Svg exposing (defs, pattern, rect, svg)
 import Svg.Attributes exposing (fill, height, id, patternUnits, shapeRendering, stroke, strokeWidth, width, x, y)
-import Svg.String
 import Task
 
 
@@ -515,7 +512,7 @@ update msg model =
 
         Test ->
             let
-                test =
+                _ =
                     "test"
             in
             ( model, Cmd.none )
@@ -535,7 +532,7 @@ pointerOnDownWithCapture onPointerDown =
                         |> JD.decodeValue Pointer.eventDecoder
                         |> Result.Extra.unpack
                             (JD.errorToString >> Log "Error")
-                            (\eventDecoded -> eventJson |> Ports.capturePointer |> WithCmd (onPointerDown eventDecoded))
+                            (\eventDecoded -> eventJson |> Ports.pointerSetCapture |> WithCmd (onPointerDown eventDecoded))
                 , stopPropagation = True
                 , preventDefault = True
                 }
@@ -544,6 +541,22 @@ pointerOnDownWithCapture onPointerDown =
 
 
 
+--pointerOnMoveWithCapture : (Pointer.Event -> Msg) -> Html.Attribute Msg
+--pointerOnMoveWithCapture onPointerMove =
+--    JD.value
+--        |> JD.map
+--            (\eventJson ->
+--                { message =
+--                    eventJson
+--                        |> JD.decodeValue Pointer.eventDecoder
+--                        |> Result.Extra.unpack
+--                            (JD.errorToString >> Log "Error")
+--                            (\eventDecoded -> eventJson |> Ports.capturePointer |> WithCmd (onPointerMove eventDecoded))
+--                , stopPropagation = True
+--                , preventDefault = True
+--                }
+--            )
+--        |> Html.Events.custom "pointermove"
 -- SUBSCRIPTIONS
 
 
@@ -708,6 +721,8 @@ viewLayer selectedLayerIndex i layer =
         --, Pointer.onDown (LayerPointerPressed i True)
         , Pointer.onUp (LayerPointerPressed i False)
         , Pointer.onCancel (LayerPointerPressed i False)
+
+        --, pointerOnMoveWithCapture (LayerPointerMoved i)
         , Pointer.onMove (LayerPointerMoved i)
         ]
         [ div
