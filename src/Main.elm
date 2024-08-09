@@ -18,12 +18,14 @@ import Image exposing (Image)
 import Image.Advanced
 import Image.Color
 import List.Extra
+import Maybe.Extra
 import Ports
 import Quadtree exposing (..)
 import Set exposing (Set)
 import Svg exposing (defs, pattern, rect, svg)
 import Svg.Attributes exposing (fill, height, id, patternUnits, shapeRendering, stroke, strokeWidth, width, x, y)
 import Task
+import Time
 
 
 quad0 =
@@ -106,6 +108,10 @@ captureLayer capture index event layers =
         |> Maybe.withDefault Cmd.none
 
 
+layerRenamePointerPressed index isPressed event =
+    Time.now |> Task.perform (LayerRenamePointerPressed index isPressed event)
+
+
 
 -- MAIN
 
@@ -133,6 +139,7 @@ type alias Model =
     , colorpalette : List Color
     , canvasPointer : PointerData
     , holdingLayerIndices : Set Int
+    , renameLayerTimer : Maybe ( Int, Time.Posix )
     }
 
 
@@ -151,6 +158,7 @@ init _ =
       , colorpalette = defaultColorpalette
       , canvasPointer = { isInside = False, isPressed = False }
       , holdingLayerIndices = Set.empty
+      , renameLayerTimer = Nothing
       }
     , Cmd.none
     )
@@ -176,14 +184,17 @@ type Msg
     | AddNewLayer
     | AddCompositeLayer
     | RemoveSelectedLayer
-    | LayerPointerPressed Int Bool Pointer.Event
-    | LayerPointerMoved Int Pointer.Event
+    | LayerRenamePointerPressed Int Bool Pointer.Event Time.Posix
+    | LayerHoldPointerPressed Int Bool Pointer.Event
+    | LayerHoldPointerMoved Int Pointer.Event
     | TryUseTool Point
     | ChangeTool Tool
     | DownloadCanvas ImageDownloadData
     | UploadCanvas
     | UploadCanvasReady File
     | UploadCanvasLoaded (Maybe (Quadtree Color))
+    | MsgBatch (List Msg)
+    | RunCmd (Cmd Msg)
     | WithCmd Msg (Cmd Msg)
     | Test
 
@@ -293,22 +304,12 @@ update msg model =
                             Pencil ->
                                 model
                                     |> doAtCoord visualCoord
-                                        (\coord scale tree ->
-                                            insertAtCoord (QuadLeaf model.color)
-                                                coord
-                                                scale
-                                                tree
-                                        )
+                                        (insertAtCoord (QuadLeaf model.color))
 
                             Eraser ->
                                 model
                                     |> doAtCoord visualCoord
-                                        (\coord scale tree ->
-                                            insertAtCoord QuadEmpty
-                                                coord
-                                                scale
-                                                tree
-                                        )
+                                        (insertAtCoord QuadEmpty)
                 in
                 ( { model | canvas = newCanvas }, Cmd.none )
 
@@ -375,7 +376,29 @@ update msg model =
             in
             ( { model | canvas = newCanvas }, Cmd.none )
 
-        LayerPointerPressed index isPressed event ->
+        LayerRenamePointerPressed index isPressed event currentTime ->
+            let
+                renameLayerTimer =
+                    model.renameLayerTimer
+
+                --newRenameLayerTimer =
+                --    if isPressed then
+                --        renameLayerTimer
+                --            |> Maybe.Extra.unwrap (always (Just ( index, currentTime )))
+                --                (\( i, t ) ->
+                --                    if index == i && currentTime - t < 0.5 then
+                --                        ( index, currentTime )
+                --
+                --                    else
+                --                        ( i, t )
+                --                )
+                --
+                --    else
+                --        ( index, currentTime )
+            in
+            ( model, Cmd.none )
+
+        LayerHoldPointerPressed index isPressed event ->
             let
                 holdingLayerIndices =
                     model.holdingLayerIndices
@@ -393,7 +416,7 @@ update msg model =
             in
             ( { model | holdingLayerIndices = newHoldingLayerIndices }, newCmd )
 
-        LayerPointerMoved index event ->
+        LayerHoldPointerMoved index event ->
             let
                 visualCoord =
                     event.pointer.offsetPos
@@ -526,6 +549,12 @@ update msg model =
                         |> Maybe.withDefault canvas
             in
             ( { model | canvas = newCanvas }, Cmd.none )
+
+        MsgBatch msgs ->
+            ( model, msgs |> List.map cmd |> Cmd.batch )
+
+        RunCmd cmd ->
+            ( model, cmd )
 
         WithCmd withMsg cmd ->
             let
@@ -731,10 +760,28 @@ viewLayer selectedLayerIndex i layer =
             , style "align-items" "center"
             , style "box-sizing" "border-box"
             , style "padding-left" "6px"
-            , Pointer.onDown (LayerPointerPressed i True)
-            , Pointer.onUp (LayerPointerPressed i False)
-            , Pointer.onCancel (LayerPointerPressed i False)
-            , Pointer.onMove (LayerPointerMoved i)
+            , Pointer.onDown
+                (\event ->
+                    MsgBatch
+                        [ LayerHoldPointerPressed i True event
+                        , LayerRenamePointerPressed i True event
+                        ]
+                )
+            , Pointer.onUp
+                (\event ->
+                    MsgBatch
+                        [ LayerHoldPointerPressed i False event
+                        , LayerRenamePointerPressed i False event
+                        ]
+                )
+            , Pointer.onCancel
+                (\event ->
+                    MsgBatch
+                        [ LayerHoldPointerPressed i False event
+                        , LayerRenamePointerPressed i False event
+                        ]
+                )
+            , Pointer.onMove (LayerHoldPointerMoved i)
             , id (canvasLayerElementId layer)
             ]
             [ text layer.name ]
