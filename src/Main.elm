@@ -1,7 +1,5 @@
 module Main exposing (..)
 
-import Array
-import Array.Extra
 import Browser
 import Canvas exposing (Canvas, CanvasLayer, layerEmpty)
 import Color exposing (Color)
@@ -19,11 +17,9 @@ import Html.Events.Extra.Pointer as Pointer
 import Image exposing (Image)
 import Image.Advanced
 import Image.Color
-import Json.Decode as JD
 import List.Extra
 import Ports
 import Quadtree exposing (..)
-import Result.Extra
 import Set exposing (Set)
 import Svg exposing (defs, pattern, rect, svg)
 import Svg.Attributes exposing (fill, height, id, patternUnits, shapeRendering, stroke, strokeWidth, width, x, y)
@@ -59,6 +55,10 @@ type alias ImageDownloadData =
     , scale : Int
     , filename : String
     }
+
+
+canvasLayerElementId layer =
+    "layer:" ++ layer.name
 
 
 coordVisual2Data : Point -> Int -> Int -> Point
@@ -226,15 +226,22 @@ update msg model =
                         event.pointer.offsetPos
                 in
                 ( { model | canvasPointer = newCanvasPointer }
-                , TryUseTool
-                    { x = ceiling x
-                    , y = ceiling y
-                    }
-                    |> cmd
+                , Cmd.batch
+                    [ TryUseTool
+                        { x = ceiling x
+                        , y = ceiling y
+                        }
+                        |> cmd
+                    , Ports.encodeCapturePointerById event.pointerId "canvasRuler"
+                        |> Ports.pointerSetCaptureById
+                    ]
                 )
 
             else
-                ( { model | canvasPointer = newCanvasPointer }, Cmd.none )
+                ( { model | canvasPointer = newCanvasPointer }
+                , Ports.encodeCapturePointerById event.pointerId "canvasRuler"
+                    |> Ports.pointerReleaseCaptureById
+                )
 
         CanvasPointerMoved event ->
             let
@@ -350,19 +357,37 @@ update msg model =
             in
             ( { model | canvas = newCanvas }, Cmd.none )
 
-        LayerPointerPressed index isPressed _ ->
+        LayerPointerPressed index isPressed event ->
             let
                 holdingLayerIndices =
                     model.holdingLayerIndices
 
-                newHoldingLayerIndices =
+                ( newHoldingLayerIndices, newCmd ) =
                     if isPressed then
-                        holdingLayerIndices |> Set.insert index
+                        ( holdingLayerIndices |> Set.insert index
+                        , model.canvas.layers
+                            |> List.Extra.getAt index
+                            |> Maybe.map
+                                (\layer ->
+                                    Ports.encodeCapturePointerById event.pointerId (canvasLayerElementId layer)
+                                        |> Ports.pointerSetCaptureById
+                                )
+                            |> Maybe.withDefault Cmd.none
+                        )
 
                     else
-                        holdingLayerIndices |> Set.remove index
+                        ( holdingLayerIndices |> Set.remove index
+                        , model.canvas.layers
+                            |> List.Extra.getAt index
+                            |> Maybe.map
+                                (\layer ->
+                                    Ports.encodeCapturePointerById event.pointerId (canvasLayerElementId layer)
+                                        |> Ports.pointerReleaseCaptureById
+                                )
+                            |> Maybe.withDefault Cmd.none
+                        )
             in
-            ( { model | holdingLayerIndices = newHoldingLayerIndices }, Cmd.none )
+            ( { model | holdingLayerIndices = newHoldingLayerIndices }, newCmd )
 
         LayerPointerMoved index event ->
             let
@@ -409,9 +434,6 @@ update msg model =
                         else
                             { canvas | layers = newLayers }
 
-                    testasdasd =
-                        ( ( index, indexOffset ), ( index + indexOffset, swapIndex ) ) |> log "testasdasd"
-
                     newHoldingLayerIndices =
                         model.holdingLayerIndices |> Set.insert swapIndex |> Set.remove index
                 in
@@ -421,7 +443,7 @@ update msg model =
                         |> List.Extra.getAt swapIndex
                         |> Maybe.map
                             (\layer ->
-                                Ports.encodeCapturePointerById event.pointerId ("layer:" ++ layer.name)
+                                Ports.encodeCapturePointerById event.pointerId (canvasLayerElementId layer)
                                     |> Ports.pointerSetCaptureById
                             )
                         |> Maybe.withDefault Cmd.none
@@ -429,26 +451,12 @@ update msg model =
                         |> List.Extra.getAt index
                         |> Maybe.map
                             (\layer ->
-                                Ports.encodeCapturePointerById event.pointerId ("layer:" ++ layer.name)
+                                Ports.encodeCapturePointerById event.pointerId (canvasLayerElementId layer)
                                     |> Ports.pointerReleaseCaptureById
                             )
                         |> Maybe.withDefault Cmd.none
                     ]
-                  --, model.canvas.layers
-                  --    |> List.Extra.getAt swapIndex
-                  --    |> Maybe.map
-                  --        (\layer ->
-                  --            Ports.encodeCapturePointerById event.pointerId ("layer:" ++ layer.name)
-                  --                |> Ports.pointerSetCaptureById
-                  --        )
-                  --    |> Maybe.withDefault Cmd.none
                 )
-                --else if not isHolding && isHeightBounded then
-                --    let
-                --        newHoldingLayerIndices =
-                --            model.holdingLayerIndices |> Set.remove index
-                --    in
-                --    ( { model | holdingLayerIndices = newHoldingLayerIndices }, Cmd.none )
 
             else
                 ( model, Cmd.none )
@@ -545,44 +553,6 @@ update msg model =
 
 
 
--- PORTS
-
-
-pointerOnDownWithCapture : (Pointer.Event -> Msg) -> Html.Attribute Msg
-pointerOnDownWithCapture onPointerDown =
-    JD.value
-        |> JD.map
-            (\eventJson ->
-                { message =
-                    eventJson
-                        |> JD.decodeValue Pointer.eventDecoder
-                        |> Result.Extra.unpack
-                            (JD.errorToString >> Log "Error")
-                            (\eventDecoded -> eventJson |> Ports.pointerSetCapture |> WithCmd (onPointerDown eventDecoded))
-                , stopPropagation = True
-                , preventDefault = True
-                }
-            )
-        |> Html.Events.custom "pointerdown"
-
-
-
---pointerOnMoveWithCapture : (Pointer.Event -> Msg) -> Html.Attribute Msg
---pointerOnMoveWithCapture onPointerMove =
---    JD.value
---        |> JD.map
---            (\eventJson ->
---                { message =
---                    eventJson
---                        |> JD.decodeValue Pointer.eventDecoder
---                        |> Result.Extra.unpack
---                            (JD.errorToString >> Log "Error")
---                            (\eventDecoded -> eventJson |> Ports.capturePointer |> WithCmd (onPointerMove eventDecoded))
---                , stopPropagation = True
---                , preventDefault = True
---                }
---            )
---        |> Html.Events.custom "pointermove"
 -- SUBSCRIPTIONS
 
 
@@ -618,7 +588,7 @@ viewRuler scale maxSize isVisible =
         , Pointer.onLeave (CanvasPointerInside False)
         , Pointer.onOver (CanvasPointerInside True)
         , Pointer.onOut (CanvasPointerInside False)
-        , pointerOnDownWithCapture (CanvasPointerPressed True)
+        , Pointer.onDown (CanvasPointerPressed True)
         , Pointer.onUp (CanvasPointerPressed False)
         , Pointer.onCancel (CanvasPointerPressed False)
         , Pointer.onMove CanvasPointerMoved
@@ -742,15 +712,11 @@ viewLayer selectedLayerIndex i layer =
     in
     div
         [ style "display" "flex"
-        , pointerOnDownWithCapture (LayerPointerPressed i True)
-
-        --, Pointer.onDown (LayerPointerPressed i True)
+        , Pointer.onDown (LayerPointerPressed i True)
         , Pointer.onUp (LayerPointerPressed i False)
         , Pointer.onCancel (LayerPointerPressed i False)
-
-        --, pointerOnMoveWithCapture (LayerPointerMoved i)
         , Pointer.onMove (LayerPointerMoved i)
-        , id ("layer:" ++ layer.name)
+        , id (canvasLayerElementId layer)
         ]
         [ div
             [ style "width" (px config.layerPreviewSize)
@@ -825,5 +791,6 @@ view model =
         , viewSelectedColor model
         , viewColorpalette model
         , viewLayers model
-        , viewDebug model.holdingLayerIndices
+
+        -- , viewDebug model.holdingLayerIndices
         ]

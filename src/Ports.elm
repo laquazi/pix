@@ -8,9 +8,6 @@ import Json.Encode as JE
 --port canvasRulerPressed : (JE.Value -> msg) -> Sub msg
 
 
-port pointerSetCapture : JD.Value -> Cmd msg
-
-
 port pointerSetCaptureById : JD.Value -> Cmd msg
 
 

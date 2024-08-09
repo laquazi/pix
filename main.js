@@ -22,10 +22,6 @@ var app = window.Elm.Main.init({
 //  app.ports.canvasRulerPressed.send(point(x, y));
 //});
 
-app.ports.pointerSetCapture.subscribe(pointerEvent => {
-    pointerEvent.target.setPointerCapture(pointerEvent.pointerId);
-});
-
 app.ports.pointerSetCaptureById.subscribe(data => {
     const element = document.getElementById(data.elementId);
     element.setPointerCapture(data.pointerId);
