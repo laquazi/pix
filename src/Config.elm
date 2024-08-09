@@ -17,6 +17,7 @@ config =
         , floatingElement = 4
         }
     , defaultMargin = 10
+    , layerPreviewSize = 64
     }
 
 

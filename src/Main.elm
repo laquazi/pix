@@ -26,6 +26,7 @@ import List.Extra
 import Ports
 import Quadtree exposing (..)
 import Result.Extra
+import Set exposing (Set)
 import Svg exposing (defs, pattern, rect, svg)
 import Svg.Attributes exposing (fill, height, id, patternUnits, shapeRendering, stroke, strokeWidth, width, x, y)
 import Svg.String
@@ -123,6 +124,7 @@ type alias Model =
     , tool : Tool
     , colorpalette : List Color
     , canvasPointer : PointerData
+    , holdingLayerIndices : Set Int
     }
 
 
@@ -142,6 +144,7 @@ init _ =
       , tool = Pencil
       , colorpalette = defaultColorpalette
       , canvasPointer = { isInside = False, isPressed = False }
+      , holdingLayerIndices = Set.empty
       }
     , Cmd.none
     )
@@ -161,11 +164,13 @@ type Msg
     | CanvasClearLayer
     | CanvasPointerInside Bool Pointer.Event
     | CanvasPointerPressed Bool Pointer.Event
-    | CanvasPointerMove Pointer.Event
+    | CanvasPointerMoved Pointer.Event
     | ChangeSelectedLayer Int
     | ToggleLayerVisibility Int
     | AddNewLayer
     | RemoveSelectedLayer
+    | LayerPointerPressed Int Bool Pointer.Event
+    | LayerPointerMoved Int Pointer.Event
     | TryUseTool Point
     | ChangeTool Tool
     | DownloadCanvas ImageDownloadData
@@ -234,7 +239,7 @@ update msg model =
             else
                 ( { model | canvasPointer = newCanvasPointer }, Cmd.none )
 
-        CanvasPointerMove event ->
+        CanvasPointerMoved event ->
             let
                 visualCoord =
                     event.pointer.offsetPos
@@ -245,7 +250,7 @@ update msg model =
                            )
 
                 isBounded =
-                    visualCoord.x < model.size && visualCoord.y < model.size
+                    visualCoord.x < model.size && visualCoord.y < model.size && visualCoord.x >= 0 && visualCoord.y >= 0
 
                 canvasPointer =
                     model.canvasPointer
@@ -348,6 +353,83 @@ update msg model =
             in
             ( { model | canvas = newCanvas }, Cmd.none )
 
+        LayerPointerPressed index isPressed _ ->
+            let
+                holdingLayerIndices =
+                    model.holdingLayerIndices
+
+                newHoldingLayerIndices =
+                    if isPressed then
+                        holdingLayerIndices |> Set.insert index
+
+                    else
+                        holdingLayerIndices |> Set.remove index
+            in
+            ( { model | holdingLayerIndices = newHoldingLayerIndices }, Cmd.none )
+
+        LayerPointerMoved index event ->
+            let
+                visualCoord =
+                    event.pointer.offsetPos
+                        |> (\( x, y ) ->
+                                { x = ceiling x
+                                , y = ceiling y
+                                }
+                           )
+
+                isHolding =
+                    model.holdingLayerIndices |> Set.member index
+
+                isHeightBounded =
+                    visualCoord.y < config.layerPreviewSize && visualCoord.y >= 0
+
+                indexOffset =
+                    if visualCoord.y > config.layerPreviewSize then
+                        visualCoord.y // -config.layerPreviewSize
+
+                    else
+                        visualCoord.y // -config.layerPreviewSize + 1
+            in
+            if isHolding && not isHeightBounded && indexOffset /= 0 then
+                let
+                    canvas =
+                        model.canvas
+
+                    swapIndex =
+                        index + indexOffset |> clamp 0 (List.length canvas.layers - 1)
+
+                    newLayers =
+                        canvas.layers
+                            |> List.Extra.swapAt index swapIndex
+
+                    newCanvas =
+                        if canvas.selectedLayerIndex == index then
+                            { canvas | layers = newLayers, selectedLayerIndex = swapIndex }
+
+                        else if canvas.selectedLayerIndex == swapIndex then
+                            { canvas | layers = newLayers, selectedLayerIndex = index }
+
+                        else
+                            { canvas | layers = newLayers }
+
+                    testasdasd =
+                        ( ( index, indexOffset ), ( index + indexOffset, swapIndex ) ) |> log "testasdasd"
+
+                    newHoldingLayerIndices =
+                        model.holdingLayerIndices |> Set.insert swapIndex |> Set.remove index
+                in
+                ( { model | canvas = newCanvas, holdingLayerIndices = newHoldingLayerIndices }, Cmd.none )
+
+            else if not isHolding && isHeightBounded then
+                let
+                    newHoldingLayerIndices =
+                        model.holdingLayerIndices |> Set.remove index
+                in
+                ( { model | holdingLayerIndices = newHoldingLayerIndices }, Cmd.none )
+
+            else
+                ( model, Cmd.none )
+
         DownloadCanvas imageDownloadData ->
             let
                 canvas =
@@ -443,8 +525,8 @@ update msg model =
 -- PORTS
 
 
-pointerOnDownAttribute : Html.Attribute Msg
-pointerOnDownAttribute =
+pointerOnDownWithCapture : (Pointer.Event -> Msg) -> Html.Attribute Msg
+pointerOnDownWithCapture onPointerDown =
     JD.value
         |> JD.map
             (\eventJson ->
@@ -453,7 +535,7 @@ pointerOnDownAttribute =
                         |> JD.decodeValue Pointer.eventDecoder
                         |> Result.Extra.unpack
                             (JD.errorToString >> Log "Error")
-                            (\eventDecoded -> eventJson |> Ports.capturePointer |> WithCmd (CanvasPointerPressed True eventDecoded))
+                            (\eventDecoded -> eventJson |> Ports.capturePointer |> WithCmd (onPointerDown eventDecoded))
                 , stopPropagation = True
                 , preventDefault = True
                 }
@@ -493,16 +575,14 @@ viewRuler scale maxSize isVisible =
         , style "height" (px maxSize)
         , id "canvasRuler"
         , style "touch-action" "none"
-        , pointerOnDownAttribute
-
-        --, Pointer.onDown (CanvasPointerPressed True)
-        , Pointer.onUp (CanvasPointerPressed False)
-        , Pointer.onCancel (CanvasPointerPressed False)
         , Pointer.onEnter (CanvasPointerInside True)
         , Pointer.onLeave (CanvasPointerInside False)
-        , Pointer.onOut (CanvasPointerInside False)
         , Pointer.onOver (CanvasPointerInside True)
-        , Pointer.onMove CanvasPointerMove
+        , Pointer.onOut (CanvasPointerInside False)
+        , pointerOnDownWithCapture (CanvasPointerPressed True)
+        , Pointer.onUp (CanvasPointerPressed False)
+        , Pointer.onCancel (CanvasPointerPressed False)
+        , Pointer.onMove CanvasPointerMoved
         , if isVisible then
             style "opacity" "100%"
 
@@ -618,17 +698,21 @@ viewMsgButtons model =
 
 viewLayer selectedLayerIndex i layer =
     let
-        previewSize =
-            64
-
         selectedBorder =
             2
     in
     div
-        [ style "display" "flex" ]
+        [ style "display" "flex"
+        , pointerOnDownWithCapture (LayerPointerPressed i True)
+
+        --, Pointer.onDown (LayerPointerPressed i True)
+        , Pointer.onUp (LayerPointerPressed i False)
+        , Pointer.onCancel (LayerPointerPressed i False)
+        , Pointer.onMove (LayerPointerMoved i)
+        ]
         [ div
-            [ style "width" (px previewSize)
-            , style "height" (px previewSize)
+            [ style "width" (px config.layerPreviewSize)
+            , style "height" (px config.layerPreviewSize)
             , onClick (ChangeSelectedLayer i)
             , style "box-sizing" "border-box"
             , if selectedLayerIndex == i then
@@ -640,16 +724,16 @@ viewLayer selectedLayerIndex i layer =
             [ layer.data
                 |> viewQuadtree
                     (if selectedLayerIndex == i then
-                        toFloat previewSize - (selectedBorder * 2)
+                        toFloat config.layerPreviewSize - (selectedBorder * 2)
 
                      else
-                        toFloat previewSize
+                        toFloat config.layerPreviewSize
                     )
                     config.color.background
             ]
         , div
             [ style "overflow" "auto"
-            , style "width" (previewSize * 1.5 |> px)
+            , style "width" (config.layerPreviewSize * 1.5 |> px)
             , style "display" "flex"
             , style "align-items" "center"
             , style "box-sizing" "border-box"
@@ -699,5 +783,5 @@ view model =
         , viewSelectedColor model
         , viewColorpalette model
         , viewLayers model
-        , viewDebug model.canvasPointer
+        , viewDebug model.holdingLayerIndices
         ]
