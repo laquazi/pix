@@ -386,14 +386,14 @@ update msg model =
 
                     else
                         visualCoord.y // -config.layerPreviewSize + 1
+
+                swapIndex =
+                    index + indexOffset |> clamp 0 (List.length model.canvas.layers - 1)
             in
-            if isHolding && not isHeightBounded && indexOffset /= 0 then
+            if isHolding && not isHeightBounded && indexOffset /= 0 && swapIndex /= index then
                 let
                     canvas =
                         model.canvas
-
-                    swapIndex =
-                        index + indexOffset |> clamp 0 (List.length canvas.layers - 1)
 
                     newLayers =
                         canvas.layers
@@ -415,14 +415,40 @@ update msg model =
                     newHoldingLayerIndices =
                         model.holdingLayerIndices |> Set.insert swapIndex |> Set.remove index
                 in
-                ( { model | canvas = newCanvas, holdingLayerIndices = newHoldingLayerIndices }, Cmd.none )
-
-            else if not isHolding && isHeightBounded then
-                let
-                    newHoldingLayerIndices =
-                        model.holdingLayerIndices |> Set.remove index
-                in
-                ( { model | holdingLayerIndices = newHoldingLayerIndices }, Cmd.none )
+                ( { model | canvas = newCanvas, holdingLayerIndices = newHoldingLayerIndices }
+                , Cmd.batch
+                    [ model.canvas.layers
+                        |> List.Extra.getAt swapIndex
+                        |> Maybe.map
+                            (\layer ->
+                                Ports.encodeCapturePointerById event.pointerId ("layer:" ++ layer.name)
+                                    |> Ports.pointerSetCaptureById
+                            )
+                        |> Maybe.withDefault Cmd.none
+                    , model.canvas.layers
+                        |> List.Extra.getAt index
+                        |> Maybe.map
+                            (\layer ->
+                                Ports.encodeCapturePointerById event.pointerId ("layer:" ++ layer.name)
+                                    |> Ports.pointerReleaseCaptureById
+                            )
+                        |> Maybe.withDefault Cmd.none
+                    ]
+                  --, model.canvas.layers
+                  --    |> List.Extra.getAt swapIndex
+                  --    |> Maybe.map
+                  --        (\layer ->
+                  --            Ports.encodeCapturePointerById event.pointerId ("layer:" ++ layer.name)
+                  --                |> Ports.pointerSetCaptureById
+                  --        )
+                  --    |> Maybe.withDefault Cmd.none
+                )
+                --else if not isHolding && isHeightBounded then
+                --    let
+                --        newHoldingLayerIndices =
+                --            model.holdingLayerIndices |> Set.remove index
+                --    in
+                --    ( { model | holdingLayerIndices = newHoldingLayerIndices }, Cmd.none )
 
             else
                 ( model, Cmd.none )
@@ -724,6 +750,7 @@ viewLayer selectedLayerIndex i layer =
 
         --, pointerOnMoveWithCapture (LayerPointerMoved i)
         , Pointer.onMove (LayerPointerMoved i)
+        , id ("layer:" ++ layer.name)
         ]
         [ div
             [ style "width" (px config.layerPreviewSize)
