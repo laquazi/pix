@@ -4,12 +4,9 @@ import Array exposing (Array)
 import Array.Extra
 import Color exposing (Color)
 import Common exposing (..)
-import Debug exposing (log)
 import Dict exposing (Dict)
 import Html exposing (Html, div)
 import Html.Attributes exposing (style)
-import List.Extra
-import List.Split
 import Maybe
 import Maybe.Extra
 import Svg exposing (g, rect, svg)
@@ -371,8 +368,6 @@ fromList width list =
                 |> toFloat
                 |> (\x -> x / toFloat width)
                 |> max (toFloat width)
-                --|> (\x -> x ^ 2)
-                --|> logBase 4
                 |> logBase 2
                 |> ceiling
 

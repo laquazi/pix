@@ -95,6 +95,17 @@ downloadRasterImage imageFormatData imageDownloadData image2bytes tree =
         |> File.Download.bytes (imageDownloadData.filename ++ "." ++ imageFormatData.extension) imageFormatData.mimeType
 
 
+captureLayer capture index event layers =
+    layers
+        |> List.Extra.getAt index
+        |> Maybe.map
+            (\layer ->
+                Ports.encodeCapturePointerById event.pointerId (canvasLayerElementId layer)
+                    |> capture
+            )
+        |> Maybe.withDefault Cmd.none
+
+
 
 -- MAIN
 
@@ -129,11 +140,9 @@ init : () -> ( Model, Cmd Msg )
 init _ =
     ( { canvas =
             { selectedLayerIndex = 1
-            , layers =
-                [ { layerEmpty | name = "Background", data = QuadLeaf Color.white }
-                , { layerEmpty | name = "Layer 1" }
-                ]
+            , layers = [ { layerEmpty | name = "Background", data = QuadLeaf Color.white } ]
             }
+                |> Canvas.addEmptyLayer
       , scale = 3
       , isRulerVisible = True
       , size = 512
@@ -165,6 +174,7 @@ type Msg
     | ChangeSelectedLayer Int
     | ToggleLayerVisibility Int
     | AddNewLayer
+    | AddCompositeLayer
     | RemoveSelectedLayer
     | LayerPointerPressed Int Bool Pointer.Event
     | LayerPointerMoved Int Pointer.Event
@@ -349,6 +359,14 @@ update msg model =
             in
             ( { model | canvas = newCanvas }, Cmd.none )
 
+        AddCompositeLayer ->
+            let
+                newCanvas =
+                    model.canvas
+                        |> Canvas.addCompositeLayer
+            in
+            ( { model | canvas = newCanvas }, Cmd.none )
+
         RemoveSelectedLayer ->
             let
                 newCanvas =
@@ -365,26 +383,12 @@ update msg model =
                 ( newHoldingLayerIndices, newCmd ) =
                     if isPressed then
                         ( holdingLayerIndices |> Set.insert index
-                        , model.canvas.layers
-                            |> List.Extra.getAt index
-                            |> Maybe.map
-                                (\layer ->
-                                    Ports.encodeCapturePointerById event.pointerId (canvasLayerElementId layer)
-                                        |> Ports.pointerSetCaptureById
-                                )
-                            |> Maybe.withDefault Cmd.none
+                        , captureLayer Ports.pointerSetCaptureById index event model.canvas.layers
                         )
 
                     else
                         ( holdingLayerIndices |> Set.remove index
-                        , model.canvas.layers
-                            |> List.Extra.getAt index
-                            |> Maybe.map
-                                (\layer ->
-                                    Ports.encodeCapturePointerById event.pointerId (canvasLayerElementId layer)
-                                        |> Ports.pointerReleaseCaptureById
-                                )
-                            |> Maybe.withDefault Cmd.none
+                        , captureLayer Ports.pointerReleaseCaptureById index event model.canvas.layers
                         )
             in
             ( { model | holdingLayerIndices = newHoldingLayerIndices }, newCmd )
@@ -415,7 +419,7 @@ update msg model =
                 swapIndex =
                     index + indexOffset |> clamp 0 (List.length model.canvas.layers - 1)
             in
-            if isHolding && not isHeightBounded && indexOffset /= 0 && swapIndex /= index then
+            if isHolding && not isHeightBounded && swapIndex /= index then
                 let
                     canvas =
                         model.canvas
@@ -439,22 +443,8 @@ update msg model =
                 in
                 ( { model | canvas = newCanvas, holdingLayerIndices = newHoldingLayerIndices }
                 , Cmd.batch
-                    [ model.canvas.layers
-                        |> List.Extra.getAt swapIndex
-                        |> Maybe.map
-                            (\layer ->
-                                Ports.encodeCapturePointerById event.pointerId (canvasLayerElementId layer)
-                                    |> Ports.pointerSetCaptureById
-                            )
-                        |> Maybe.withDefault Cmd.none
-                    , model.canvas.layers
-                        |> List.Extra.getAt index
-                        |> Maybe.map
-                            (\layer ->
-                                Ports.encodeCapturePointerById event.pointerId (canvasLayerElementId layer)
-                                    |> Ports.pointerReleaseCaptureById
-                            )
-                        |> Maybe.withDefault Cmd.none
+                    [ captureLayer Ports.pointerSetCaptureById swapIndex event model.canvas.layers
+                    , captureLayer Ports.pointerReleaseCaptureById index event model.canvas.layers
                     ]
                 )
 
@@ -467,8 +457,8 @@ update msg model =
                     model.canvas
 
                 optimizedTree =
-                    { canvas | layers = canvas.layers |> List.filter .isVisible }
-                        |> Canvas.mergeLayers
+                    canvas
+                        |> Canvas.mergeVisibleLayers
                         |> Quadtree.optimize
 
                 -- FIXME: do bmp and gif support transparency? choose another color if not. gif and svg dont work with big files. DON'T scale quadtree, it gets slow real fast, maybe ditch support for anything except png, it seems to work best
@@ -650,8 +640,8 @@ viewCanvas model =
         , style "margin" (px config.defaultMargin)
         ]
         [ viewRuler (toFloat model.scale) (toFloat model.size) model.isRulerVisible
-        , { canvas | layers = canvas.layers |> List.filter .isVisible }
-            |> Canvas.mergeLayers
+        , canvas
+            |> Canvas.mergeVisibleLayers
             |> viewQuadtree (toFloat model.size) colorTransparent
         ]
 
@@ -712,11 +702,6 @@ viewLayer selectedLayerIndex i layer =
     in
     div
         [ style "display" "flex"
-        , Pointer.onDown (LayerPointerPressed i True)
-        , Pointer.onUp (LayerPointerPressed i False)
-        , Pointer.onCancel (LayerPointerPressed i False)
-        , Pointer.onMove (LayerPointerMoved i)
-        , id (canvasLayerElementId layer)
         ]
         [ div
             [ style "width" (px config.layerPreviewSize)
@@ -746,6 +731,11 @@ viewLayer selectedLayerIndex i layer =
             , style "align-items" "center"
             , style "box-sizing" "border-box"
             , style "padding-left" "6px"
+            , Pointer.onDown (LayerPointerPressed i True)
+            , Pointer.onUp (LayerPointerPressed i False)
+            , Pointer.onCancel (LayerPointerPressed i False)
+            , Pointer.onMove (LayerPointerMoved i)
+            , id (canvasLayerElementId layer)
             ]
             [ text layer.name ]
         , button [ onClick (ToggleLayerVisibility i) ]
@@ -768,6 +758,7 @@ viewLayers model =
         ]
         [ button [ onClick AddNewLayer ] [ text "+" ]
         , button [ onClick RemoveSelectedLayer ] [ text "-" ]
+        , button [ onClick AddCompositeLayer ] [ text "add composite" ]
         , div
             [ style "display" "flex"
             , style "flex-wrap" "wrap"

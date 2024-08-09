@@ -58,27 +58,27 @@ canvasEmpty =
     }
 
 
-parserLayerName : Parser Int
-parserLayerName =
+parserLayerName : String -> Parser Int
+parserLayerName prefix =
     Parser.succeed identity
-        |. Parser.keyword "Layer"
+        |. Parser.keyword prefix
         |. Parser.spaces
         |= Parser.int
 
 
-addLayer : Quadtree Color -> Canvas -> Canvas
-addLayer data canvas =
+addLayerWithPrefix : String -> Quadtree Color -> Canvas -> Canvas
+addLayerWithPrefix prefix data canvas =
     let
         nameIndex =
             canvas.layers
                 |> List.filterMap
-                    (\layer -> Parser.run parserLayerName layer.name |> Result.toMaybe)
+                    (\layer -> Parser.run (parserLayerName prefix) layer.name |> Result.toMaybe)
                 |> List.maximum
                 |> Maybe.withDefault 0
 
         newLayer =
             { layerEmpty
-                | name = "Layer " ++ String.fromInt (nameIndex + 1)
+                | name = prefix ++ " " ++ String.fromInt (nameIndex + 1)
                 , data = data
             }
     in
@@ -86,6 +86,16 @@ addLayer data canvas =
         | layers = canvas.layers |> listInsertAt (canvas.selectedLayerIndex + 1) newLayer
         , selectedLayerIndex = canvas.selectedLayerIndex + 1
     }
+
+
+addLayer : Quadtree Color -> Canvas -> Canvas
+addLayer data canvas =
+    addLayerWithPrefix "Layer" data canvas
+
+
+addCompositeLayer : Canvas -> Canvas
+addCompositeLayer canvas =
+    addLayerWithPrefix "Composite layer" (canvas |> mergeVisibleLayers) canvas
 
 
 addEmptyLayer : Canvas -> Canvas
