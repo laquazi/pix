@@ -1,8 +1,7 @@
 module Main exposing (..)
 
 import Browser
-import Browser.Events exposing (onKeyDown, onKeyPress)
-import Canvas exposing (Canvas, CanvasLayer, layerEmpty)
+import Canvas exposing (Canvas, CanvasLayer)
 import Color exposing (Color)
 import Color.Blending
 import Color.Convert
@@ -14,12 +13,11 @@ import File.Download
 import File.Select
 import Html exposing (Html, button, div, input, text)
 import Html.Attributes exposing (style, type_, value)
-import Html.Events exposing (on, onClick, onInput)
+import Html.Events exposing (on, onClick, onDoubleClick, onInput)
 import Html.Events.Extra.Pointer as Pointer
 import Image exposing (Image)
 import Image.Advanced
 import Image.Color
-import Json.Decode as JD
 import List.Extra
 import Maybe.Extra
 import Ports
@@ -110,18 +108,6 @@ captureLayer capture index event layers =
                     |> capture
             )
         |> Maybe.withDefault Cmd.none
-
-
-layerRenamePointerPressed index =
-    JD.field "detail" JD.int
-        |> JD.map
-            (\i ->
-                if i == 2 then
-                    LayerRenamePointerPressed index
-
-                else
-                    Noop
-            )
 
 
 
@@ -392,6 +378,17 @@ update msg model =
         LayerRenameCanceled ->
             ( { model | maybeRenameLayerIndex = Nothing }, Cmd.none )
 
+        LayerRename index name ->
+            let
+                canvas =
+                    model.canvas
+
+                newCanvas =
+                    canvas
+                        |> Canvas.updateLayer index (\layer -> { layer | name = name })
+            in
+            ( { model | canvas = newCanvas }, Cmd.none )
+
         LayerHoldPointerPressed index isDown event ->
             let
                 holdingLayerIndices =
@@ -409,17 +406,6 @@ update msg model =
                         )
             in
             ( { model | holdingLayerIndices = newHoldingLayerIndices }, newCmd )
-
-        LayerRename index name ->
-            let
-                canvas =
-                    model.canvas
-
-                newCanvas =
-                    canvas
-                        |> Canvas.updateLayer index (\layer -> { layer | name = name })
-            in
-            ( { model | canvas = newCanvas }, Cmd.none )
 
         LayerHoldPointerMoved index event ->
             let
@@ -774,11 +760,11 @@ viewLayer model i layer =
             , style "align-items" "center"
             , style "box-sizing" "border-box"
             , style "padding-left" "6px"
+            , onDoubleClick (LayerRenamePointerPressed i)
             , Pointer.onLeave (always LayerRenameCanceled)
 
             --, Pointer.onOut (always LayerRenameCanceled)
             , Pointer.onDown (LayerHoldPointerPressed i True)
-            , on "click" (layerRenamePointerPressed i)
             , Pointer.onUp (LayerHoldPointerPressed i False)
             , Pointer.onCancel
                 (\event ->
