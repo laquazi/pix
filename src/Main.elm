@@ -116,8 +116,8 @@ layerRenameSetDelay index =
     Time.now |> Task.perform (LayerRenameSetDelay index)
 
 
-layerRenameTouchEnded index =
-    Time.now |> Task.perform (LayerRenameTouchEnded index)
+layerRenameResolved index =
+    Time.now |> Task.perform (LayerRenameResolved index)
 
 
 
@@ -196,7 +196,7 @@ type Msg
     | RemoveSelectedLayer
     | LayerRenameSetReady Int
     | LayerRenameSetDelay Int Time.Posix
-    | LayerRenameTouchEnded Int Time.Posix
+    | LayerRenameResolved Int Time.Posix
     | LayerRenameCanceled
     | LayerRename Int String
     | LayerHoldPointerPressed Int Bool Pointer.Event
@@ -396,8 +396,21 @@ update msg model =
         LayerRenameSetDelay index currentTime ->
             ( { model | layerRenameData = LayerRenameDelay index currentTime }, Cmd.none )
 
-        LayerRenameTouchEnded index currentTime ->
-            ( { model | layerRenameData = LayerRenameCancel }, Cmd.none )
+        LayerRenameResolved index currentTime ->
+            let
+                newLayerRenameData =
+                    case model.layerRenameData of
+                        LayerRenameDelay i t ->
+                            if i == index && (currentTime |> Time.posixToMillis) - (t |> Time.posixToMillis) < 300 then
+                                LayerRenameReady index
+
+                            else
+                                LayerRenameCancel
+
+                        _ ->
+                            LayerRenameCancel
+            in
+            ( { model | layerRenameData = newLayerRenameData }, Cmd.none )
 
         LayerRenameCanceled ->
             ( { model | layerRenameData = LayerRenameCancel }, Cmd.none )
@@ -786,12 +799,9 @@ viewLayer model i layer =
             , style "box-sizing" "border-box"
             , style "padding-left" "6px"
             , Mouse.onDoubleClick (always (LayerRenameSetReady i))
-
-            --, Touch.onStart (always (LayerRenamePointerPressed i |> delayMsg 300 |> RunCmd))
             , Touch.onStart (always (layerRenameSetDelay i |> RunCmd))
+            , Touch.onEnd (always (layerRenameResolved i |> RunCmd))
             , Pointer.onLeave (always LayerRenameCanceled)
-
-            --, Pointer.onOut (always LayerRenameCanceled)
             , Pointer.onDown (LayerHoldPointerPressed i True)
             , Pointer.onUp (LayerHoldPointerPressed i False)
             , Pointer.onCancel
