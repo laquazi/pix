@@ -4,6 +4,7 @@ import Browser
 import Canvas exposing (Canvas, CanvasLayer, layerEmpty)
 import Color exposing (Color)
 import Color.Blending
+import Color.Convert
 import Common exposing (..)
 import Config exposing (..)
 import Debug exposing (log)
@@ -11,7 +12,7 @@ import File exposing (File)
 import File.Download
 import File.Select
 import Html exposing (Html, button, div, input, text)
-import Html.Attributes exposing (placeholder, style, value)
+import Html.Attributes exposing (style, type_, value)
 import Html.Events exposing (onClick, onInput)
 import Html.Events.Extra.Pointer as Pointer
 import Image exposing (Image)
@@ -21,6 +22,7 @@ import List.Extra
 import Maybe.Extra
 import Ports
 import Quadtree exposing (..)
+import Result.Extra
 import Set exposing (Set)
 import Svg exposing (defs, pattern, rect, svg)
 import Svg.Attributes exposing (fill, height, id, patternUnits, shapeRendering, stroke, strokeWidth, width, x, y)
@@ -151,7 +153,7 @@ type alias Model =
 init : () -> ( Model, Cmd Msg )
 init _ =
     ( { canvas =
-            { selectedLayerIndex = 1
+            { selectedLayerIndex = 0
             , layers = [ { layerEmpty | name = "Background", data = QuadLeaf Color.white } ]
             }
                 |> Canvas.addEmptyLayer
@@ -721,12 +723,21 @@ viewColorpalette model =
 
 viewSelectedColor model =
     div
-        [ style "width" (px 64)
-        , style "height" (px 64)
-        , style "background-color" (Color.toCssString model.color)
+        [ style "background-color" (Color.toCssString model.color)
         , style "margin" (px config.defaultMargin)
+        , style "width" (px 64)
+        , style "height" (px 64)
         ]
-        [ text "\u{200B}" ]
+        [ input
+            [ style "width" "100%"
+            , style "height" "100%"
+            , style "opacity" "0%"
+            , type_ "color"
+            , value (Color.Convert.colorToHex model.color)
+            , onInput (Color.Convert.hexToColor >> Result.Extra.unwrap model.color identity >> ChangeColor)
+            ]
+            []
+        ]
 
 
 viewMsgButtons : Model -> Html Msg
@@ -816,6 +827,8 @@ viewLayer model i layer =
 
                             --, placeholder layer.name
                             , onInput (LayerRename i)
+
+                            --, style "padding" "0"
                             ]
                             []
                         )
