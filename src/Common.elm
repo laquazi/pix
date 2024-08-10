@@ -87,3 +87,7 @@ px x =
 
 listInsertAt index data list =
     list |> List.Extra.splitAt index |> (\( a, b ) -> a ++ [ data ] ++ b)
+
+
+tupleThird ( _, _, c ) =
+    c

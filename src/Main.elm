@@ -10,9 +10,9 @@ import Debug exposing (log)
 import File exposing (File)
 import File.Download
 import File.Select
-import Html exposing (Html, button, div, text)
-import Html.Attributes exposing (style)
-import Html.Events exposing (onClick)
+import Html exposing (Html, button, div, input, text)
+import Html.Attributes exposing (placeholder, style, value)
+import Html.Events exposing (onClick, onInput)
 import Html.Events.Extra.Pointer as Pointer
 import Image exposing (Image)
 import Image.Advanced
@@ -25,7 +25,7 @@ import Set exposing (Set)
 import Svg exposing (defs, pattern, rect, svg)
 import Svg.Attributes exposing (fill, height, id, patternUnits, shapeRendering, stroke, strokeWidth, width, x, y)
 import Task
-import Time exposing (utc)
+import Time
 
 
 quad0 =
@@ -112,6 +112,11 @@ layerRenamePointerPressed index event =
     Time.now |> Task.perform (LayerRenamePointerPressed index event)
 
 
+type DoubleClickData
+    = ClickedBefore Time.Posix
+    | NotClickedBefore
+
+
 
 -- MAIN
 
@@ -186,6 +191,7 @@ type Msg
     | RemoveSelectedLayer
     | LayerRenamePointerPressed Int Pointer.Event Time.Posix
     | LayerRenamePointerCanceled Pointer.Event
+    | LayerRename Int String
     | LayerHoldPointerPressed Int Bool Pointer.Event
     | LayerHoldPointerMoved Int Pointer.Event
     | TryUseTool Point
@@ -386,16 +392,6 @@ update msg model =
                     maybeRenameLayerTimer
                         |> Maybe.andThen
                             (\( i, t, isPressed ) ->
-                                --let
-                                --    ctms =
-                                --        currentTime |> Time.posixToMillis
-                                --
-                                --    tms =
-                                --        t |> Time.posixToMillis
-                                --
-                                --    test =
-                                --        ( ctms - 1723249991113, tms - 1723249991113, ctms - tms ) |> log "test"
-                                --in
                                 if index /= i then
                                     Nothing |> log "a"
 
@@ -415,7 +411,6 @@ update msg model =
         LayerRenamePointerCanceled _ ->
             ( { model | maybeRenameLayerTimer = Nothing }, Cmd.none )
 
-        --( model, Cmd.none )
         LayerHoldPointerPressed index isDown event ->
             let
                 holdingLayerIndices =
@@ -433,6 +428,17 @@ update msg model =
                         )
             in
             ( { model | holdingLayerIndices = newHoldingLayerIndices }, newCmd )
+
+        LayerRename index name ->
+            let
+                canvas =
+                    model.canvas
+
+                newCanvas =
+                    canvas
+                        |> Canvas.updateLayer index (\layer -> { layer | name = name })
+            in
+            ( { model | canvas = newCanvas }, Cmd.none )
 
         LayerHoldPointerMoved index event ->
             let
@@ -742,7 +748,7 @@ viewMsgButtons model =
         ]
 
 
-viewLayer selectedLayerIndex i layer =
+viewLayer model i layer =
     let
         selectedBorder =
             2
@@ -755,7 +761,7 @@ viewLayer selectedLayerIndex i layer =
             , style "height" (px config.layerPreviewSize)
             , onClick (ChangeSelectedLayer i)
             , style "box-sizing" "border-box"
-            , if selectedLayerIndex == i then
+            , if model.canvas.selectedLayerIndex == i then
                 style "border" (px selectedBorder ++ " solid #D58F17")
 
               else
@@ -763,7 +769,7 @@ viewLayer selectedLayerIndex i layer =
             ]
             [ layer.data
                 |> viewQuadtree
-                    (if selectedLayerIndex == i then
+                    (if model.canvas.selectedLayerIndex == i then
                         toFloat config.layerPreviewSize - (selectedBorder * 2)
 
                      else
@@ -779,7 +785,8 @@ viewLayer selectedLayerIndex i layer =
             , style "box-sizing" "border-box"
             , style "padding-left" "6px"
             , Pointer.onLeave LayerRenamePointerCanceled
-            , Pointer.onOut LayerRenamePointerCanceled
+
+            --, Pointer.onOut LayerRenamePointerCanceled
             , Pointer.onDown
                 (\event ->
                     WithCmd
@@ -794,10 +801,26 @@ viewLayer selectedLayerIndex i layer =
                         , LayerRenamePointerCanceled event
                         ]
                 )
+
+            --, Pointer.onCancel (LayerHoldPointerPressed i False)
             , Pointer.onMove (LayerHoldPointerMoved i)
             , id (canvasLayerElementId layer)
             ]
-            [ text layer.name ]
+            [ model.maybeRenameLayerTimer
+                |> Maybe.Extra.filter
+                    (\( renamingIndex, _, isRenaming ) -> isRenaming && renamingIndex == i)
+                |> Maybe.Extra.unwrap (text layer.name)
+                    (always
+                        (input
+                            [ value layer.name
+
+                            --, placeholder layer.name
+                            , onInput (LayerRename i)
+                            ]
+                            []
+                        )
+                    )
+            ]
         , button [ onClick (ToggleLayerVisibility i) ]
             [ if layer.isVisible then
                 text "👁"
@@ -825,7 +848,7 @@ viewLayers model =
             , style "flex-direction" "column-reverse"
             , style "border" "1px solid #000"
             ]
-            (model.canvas.layers |> List.indexedMap (viewLayer model.canvas.selectedLayerIndex))
+            (model.canvas.layers |> List.indexedMap (viewLayer model))
         ]
 
 
@@ -842,5 +865,6 @@ view model =
         , viewSelectedColor model
         , viewColorpalette model
         , viewLayers model
-        , viewDebug model.maybeRenameLayerTimer
+
+        --, viewDebug model.maybeRenameLayerTimer
         ]
