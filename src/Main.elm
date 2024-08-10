@@ -1,6 +1,7 @@
 module Main exposing (..)
 
 import Browser
+import Browser.Events exposing (onKeyDown, onKeyPress)
 import Canvas exposing (Canvas, CanvasLayer, layerEmpty)
 import Color exposing (Color)
 import Color.Blending
@@ -18,6 +19,7 @@ import Html.Events.Extra.Pointer as Pointer
 import Image exposing (Image)
 import Image.Advanced
 import Image.Color
+import Json.Decode as JD
 import List.Extra
 import Maybe.Extra
 import Ports
@@ -114,11 +116,6 @@ layerRenamePointerPressed index event =
     Time.now |> Task.perform (LayerRenamePointerPressed index event)
 
 
-type DoubleClickData
-    = ClickedBefore Time.Posix
-    | NotClickedBefore
-
-
 
 -- MAIN
 
@@ -152,11 +149,7 @@ type alias Model =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { canvas =
-            { selectedLayerIndex = 0
-            , layers = [ { layerEmpty | name = "Background", data = QuadLeaf Color.white } ]
-            }
-                |> Canvas.addEmptyLayer
+    ( { canvas = Canvas.default
       , scale = 3
       , isRulerVisible = True
       , size = 512
@@ -192,7 +185,7 @@ type Msg
     | AddCompositeLayer
     | RemoveSelectedLayer
     | LayerRenamePointerPressed Int Pointer.Event Time.Posix
-    | LayerRenamePointerCanceled Pointer.Event
+    | LayerRenameCanceled
     | LayerRename Int String
     | LayerHoldPointerPressed Int Bool Pointer.Event
     | LayerHoldPointerMoved Int Pointer.Event
@@ -410,7 +403,7 @@ update msg model =
             in
             ( { model | maybeRenameLayerTimer = newMaybeRenameLayerTimer }, Cmd.none )
 
-        LayerRenamePointerCanceled _ ->
+        LayerRenameCanceled ->
             ( { model | maybeRenameLayerTimer = Nothing }, Cmd.none )
 
         LayerHoldPointerPressed index isDown event ->
@@ -795,9 +788,9 @@ viewLayer model i layer =
             , style "align-items" "center"
             , style "box-sizing" "border-box"
             , style "padding-left" "6px"
-            , Pointer.onLeave LayerRenamePointerCanceled
+            , Pointer.onLeave (always LayerRenameCanceled)
 
-            --, Pointer.onOut LayerRenamePointerCanceled
+            --, Pointer.onOut (always LayerRenameCanceled)
             , Pointer.onDown
                 (\event ->
                     WithCmd
@@ -809,7 +802,7 @@ viewLayer model i layer =
                 (\event ->
                     MsgBatch
                         [ LayerHoldPointerPressed i False event
-                        , LayerRenamePointerCanceled event
+                        , LayerRenameCanceled
                         ]
                 )
 

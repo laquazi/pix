@@ -51,11 +51,12 @@ layerEmpty =
     }
 
 
-canvasEmpty : Canvas
-canvasEmpty =
-    { layers = [ layerEmpty ]
+default : Canvas
+default =
+    { layers = [ { layerEmpty | name = "Background", data = QuadLeaf Color.white } ]
     , selectedLayerIndex = 0
     }
+        |> addEmptyLayer
 
 
 parserLayerName : String -> Parser Int
