@@ -25,7 +25,7 @@ import Set exposing (Set)
 import Svg exposing (defs, pattern, rect, svg)
 import Svg.Attributes exposing (fill, height, id, patternUnits, shapeRendering, stroke, strokeWidth, width, x, y)
 import Task
-import Time
+import Time exposing (utc)
 
 
 quad0 =
@@ -43,7 +43,7 @@ quad0 =
 
 type alias PointerData =
     { isInside : Bool
-    , isPressed : Bool
+    , isDown : Bool
     }
 
 
@@ -108,8 +108,8 @@ captureLayer capture index event layers =
         |> Maybe.withDefault Cmd.none
 
 
-layerRenamePointerPressed index isPressed event =
-    Time.now |> Task.perform (LayerRenamePointerPressed index isPressed event)
+layerRenamePointerPressed index event =
+    Time.now |> Task.perform (LayerRenamePointerPressed index event)
 
 
 
@@ -139,7 +139,7 @@ type alias Model =
     , colorpalette : List Color
     , canvasPointer : PointerData
     , holdingLayerIndices : Set Int
-    , renameLayerTimer : Maybe ( Int, Time.Posix )
+    , maybeRenameLayerTimer : Maybe ( Int, Time.Posix, Bool )
     }
 
 
@@ -156,9 +156,9 @@ init _ =
       , color = Color.black
       , tool = Pencil
       , colorpalette = defaultColorpalette
-      , canvasPointer = { isInside = False, isPressed = False }
+      , canvasPointer = { isInside = False, isDown = False }
       , holdingLayerIndices = Set.empty
-      , renameLayerTimer = Nothing
+      , maybeRenameLayerTimer = Nothing
       }
     , Cmd.none
     )
@@ -184,7 +184,8 @@ type Msg
     | AddNewLayer
     | AddCompositeLayer
     | RemoveSelectedLayer
-    | LayerRenamePointerPressed Int Bool Pointer.Event Time.Posix
+    | LayerRenamePointerPressed Int Pointer.Event Time.Posix
+    | LayerRenamePointerCanceled Pointer.Event
     | LayerHoldPointerPressed Int Bool Pointer.Event
     | LayerHoldPointerMoved Int Pointer.Event
     | TryUseTool Point
@@ -233,15 +234,15 @@ update msg model =
             in
             ( { model | canvasPointer = newCanvasPointer }, Cmd.none )
 
-        CanvasPointerPressed isPressed event ->
+        CanvasPointerPressed isDown event ->
             let
                 canvasPointer =
                     model.canvasPointer
 
                 newCanvasPointer =
-                    { canvasPointer | isPressed = isPressed }
+                    { canvasPointer | isDown = isDown }
             in
-            if isPressed then
+            if isDown then
                 let
                     ( x, y ) =
                         event.pointer.offsetPos
@@ -297,7 +298,7 @@ update msg model =
                 ( { model | canvasPointer = newCanvasPointer }, Cmd.none )
 
         TryUseTool visualCoord ->
-            if model.canvasPointer.isInside && model.canvasPointer.isPressed then
+            if model.canvasPointer.isInside && model.canvasPointer.isDown then
                 let
                     newCanvas =
                         case model.tool of
@@ -376,35 +377,52 @@ update msg model =
             in
             ( { model | canvas = newCanvas }, Cmd.none )
 
-        LayerRenamePointerPressed index isPressed event currentTime ->
+        LayerRenamePointerPressed index _ currentTime ->
             let
-                renameLayerTimer =
-                    model.renameLayerTimer
+                maybeRenameLayerTimer =
+                    model.maybeRenameLayerTimer
 
-                --newRenameLayerTimer =
-                --    if isPressed then
-                --        renameLayerTimer
-                --            |> Maybe.Extra.unwrap (always (Just ( index, currentTime )))
-                --                (\( i, t ) ->
-                --                    if index == i && currentTime - t < 0.5 then
-                --                        ( index, currentTime )
-                --
-                --                    else
-                --                        ( i, t )
-                --                )
-                --
-                --    else
-                --        ( index, currentTime )
+                newMaybeRenameLayerTimer =
+                    maybeRenameLayerTimer
+                        |> Maybe.andThen
+                            (\( i, t, isPressed ) ->
+                                --let
+                                --    ctms =
+                                --        currentTime |> Time.posixToMillis
+                                --
+                                --    tms =
+                                --        t |> Time.posixToMillis
+                                --
+                                --    test =
+                                --        ( ctms - 1723249991113, tms - 1723249991113, ctms - tms ) |> log "test"
+                                --in
+                                if index /= i then
+                                    Nothing |> log "a"
+
+                                else if isPressed then
+                                    Just ( i, t, True ) |> log "b"
+
+                                else if (currentTime |> Time.posixToMillis) - (t |> Time.posixToMillis) < 300 then
+                                    Just ( i, t, True ) |> log "c"
+
+                                else
+                                    Just ( index, currentTime, False ) |> log "d"
+                            )
+                        |> Maybe.Extra.orElse (Just ( index, currentTime, False ))
             in
-            ( model, Cmd.none )
+            ( { model | maybeRenameLayerTimer = newMaybeRenameLayerTimer }, Cmd.none )
 
-        LayerHoldPointerPressed index isPressed event ->
+        LayerRenamePointerCanceled _ ->
+            ( { model | maybeRenameLayerTimer = Nothing }, Cmd.none )
+
+        --( model, Cmd.none )
+        LayerHoldPointerPressed index isDown event ->
             let
                 holdingLayerIndices =
                     model.holdingLayerIndices
 
                 ( newHoldingLayerIndices, newCmd ) =
-                    if isPressed then
+                    if isDown then
                         ( holdingLayerIndices |> Set.insert index
                         , captureLayer Ports.pointerSetCaptureById index event model.canvas.layers
                         )
@@ -760,25 +778,20 @@ viewLayer selectedLayerIndex i layer =
             , style "align-items" "center"
             , style "box-sizing" "border-box"
             , style "padding-left" "6px"
+            , Pointer.onLeave LayerRenamePointerCanceled
+            , Pointer.onOut LayerRenamePointerCanceled
             , Pointer.onDown
                 (\event ->
-                    MsgBatch
-                        [ LayerHoldPointerPressed i True event
-                        , LayerRenamePointerPressed i True event
-                        ]
+                    WithCmd
+                        (LayerHoldPointerPressed i True event)
+                        (layerRenamePointerPressed i event)
                 )
-            , Pointer.onUp
-                (\event ->
-                    MsgBatch
-                        [ LayerHoldPointerPressed i False event
-                        , LayerRenamePointerPressed i False event
-                        ]
-                )
+            , Pointer.onUp (LayerHoldPointerPressed i False)
             , Pointer.onCancel
                 (\event ->
                     MsgBatch
                         [ LayerHoldPointerPressed i False event
-                        , LayerRenamePointerPressed i False event
+                        , LayerRenamePointerCanceled event
                         ]
                 )
             , Pointer.onMove (LayerHoldPointerMoved i)
@@ -829,6 +842,5 @@ view model =
         , viewSelectedColor model
         , viewColorpalette model
         , viewLayers model
-
-        -- , viewDebug model.holdingLayerIndices
+        , viewDebug model.maybeRenameLayerTimer
         ]
