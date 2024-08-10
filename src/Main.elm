@@ -14,7 +14,7 @@ import File.Download
 import File.Select
 import Html exposing (Html, button, div, input, text)
 import Html.Attributes exposing (style, type_, value)
-import Html.Events exposing (onClick, onInput)
+import Html.Events exposing (on, onClick, onInput)
 import Html.Events.Extra.Pointer as Pointer
 import Image exposing (Image)
 import Image.Advanced
@@ -112,8 +112,16 @@ captureLayer capture index event layers =
         |> Maybe.withDefault Cmd.none
 
 
-layerRenamePointerPressed index event =
-    Time.now |> Task.perform (LayerRenamePointerPressed index event)
+layerRenamePointerPressed index =
+    JD.field "detail" JD.int
+        |> JD.map
+            (\i ->
+                if i == 2 then
+                    LayerRenamePointerPressed index
+
+                else
+                    Noop
+            )
 
 
 
@@ -143,7 +151,7 @@ type alias Model =
     , colorpalette : List Color
     , canvasPointer : PointerData
     , holdingLayerIndices : Set Int
-    , maybeRenameLayerTimer : Maybe ( Int, Time.Posix, Bool )
+    , maybeRenameLayerIndex : Maybe Int
     }
 
 
@@ -158,7 +166,7 @@ init _ =
       , colorpalette = defaultColorpalette
       , canvasPointer = { isInside = False, isDown = False }
       , holdingLayerIndices = Set.empty
-      , maybeRenameLayerTimer = Nothing
+      , maybeRenameLayerIndex = Nothing
       }
     , Cmd.none
     )
@@ -184,7 +192,7 @@ type Msg
     | AddNewLayer
     | AddCompositeLayer
     | RemoveSelectedLayer
-    | LayerRenamePointerPressed Int Pointer.Event Time.Posix
+    | LayerRenamePointerPressed Int
     | LayerRenameCanceled
     | LayerRename Int String
     | LayerHoldPointerPressed Int Bool Pointer.Event
@@ -378,33 +386,11 @@ update msg model =
             in
             ( { model | canvas = newCanvas }, Cmd.none )
 
-        LayerRenamePointerPressed index _ currentTime ->
-            let
-                maybeRenameLayerTimer =
-                    model.maybeRenameLayerTimer
-
-                newMaybeRenameLayerTimer =
-                    maybeRenameLayerTimer
-                        |> Maybe.andThen
-                            (\( i, t, isPressed ) ->
-                                if index /= i then
-                                    Nothing |> log "a"
-
-                                else if isPressed then
-                                    Just ( i, t, True ) |> log "b"
-
-                                else if (currentTime |> Time.posixToMillis) - (t |> Time.posixToMillis) < 300 then
-                                    Just ( i, t, True ) |> log "c"
-
-                                else
-                                    Just ( index, currentTime, False ) |> log "d"
-                            )
-                        |> Maybe.Extra.orElse (Just ( index, currentTime, False ))
-            in
-            ( { model | maybeRenameLayerTimer = newMaybeRenameLayerTimer }, Cmd.none )
+        LayerRenamePointerPressed index ->
+            ( { model | maybeRenameLayerIndex = Just index }, Cmd.none )
 
         LayerRenameCanceled ->
-            ( { model | maybeRenameLayerTimer = Nothing }, Cmd.none )
+            ( { model | maybeRenameLayerIndex = Nothing }, Cmd.none )
 
         LayerHoldPointerPressed index isDown event ->
             let
@@ -791,12 +777,8 @@ viewLayer model i layer =
             , Pointer.onLeave (always LayerRenameCanceled)
 
             --, Pointer.onOut (always LayerRenameCanceled)
-            , Pointer.onDown
-                (\event ->
-                    WithCmd
-                        (LayerHoldPointerPressed i True event)
-                        (layerRenamePointerPressed i event)
-                )
+            , Pointer.onDown (LayerHoldPointerPressed i True)
+            , on "click" (layerRenamePointerPressed i)
             , Pointer.onUp (LayerHoldPointerPressed i False)
             , Pointer.onCancel
                 (\event ->
@@ -810,9 +792,8 @@ viewLayer model i layer =
             , Pointer.onMove (LayerHoldPointerMoved i)
             , id (canvasLayerElementId layer)
             ]
-            [ model.maybeRenameLayerTimer
-                |> Maybe.Extra.filter
-                    (\( renamingIndex, _, isRenaming ) -> isRenaming && renamingIndex == i)
+            [ model.maybeRenameLayerIndex
+                |> Maybe.Extra.filter ((==) i)
                 |> Maybe.Extra.unwrap (text layer.name)
                     (always
                         (input
