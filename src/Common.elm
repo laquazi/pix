@@ -4,7 +4,9 @@ import Array exposing (Array)
 import Color exposing (Color)
 import Dict exposing (Dict)
 import List.Extra
+import Process
 import Task
+import Time
 
 
 type alias Point =
@@ -91,3 +93,8 @@ listInsertAt index data list =
 
 tupleThird ( _, _, c ) =
     c
+
+
+delayMsg : Float -> msg -> Cmd msg
+delayMsg timeMs msg =
+    Process.sleep timeMs |> Task.perform (\_ -> msg)

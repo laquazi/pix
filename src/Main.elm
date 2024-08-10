@@ -13,8 +13,10 @@ import File.Download
 import File.Select
 import Html exposing (Html, button, div, input, text)
 import Html.Attributes exposing (style, type_, value)
-import Html.Events exposing (on, onClick, onDoubleClick, onInput)
+import Html.Events exposing (onClick, onInput)
+import Html.Events.Extra.Mouse as Mouse
 import Html.Events.Extra.Pointer as Pointer
+import Html.Events.Extra.Touch as Touch
 import Image exposing (Image)
 import Image.Advanced
 import Image.Color
@@ -26,7 +28,7 @@ import Result.Extra
 import Set exposing (Set)
 import Svg exposing (defs, pattern, rect, svg)
 import Svg.Attributes exposing (fill, height, id, patternUnits, shapeRendering, stroke, strokeWidth, width, x, y)
-import Task
+import Task exposing (Task)
 import Time
 
 
@@ -110,6 +112,14 @@ captureLayer capture index event layers =
         |> Maybe.withDefault Cmd.none
 
 
+layerRenameSetDelay index =
+    Time.now |> Task.perform (LayerRenameSetDelay index)
+
+
+layerRenameTouchEnded index =
+    Time.now |> Task.perform (LayerRenameTouchEnded index)
+
+
 
 -- MAIN
 
@@ -137,7 +147,7 @@ type alias Model =
     , colorpalette : List Color
     , canvasPointer : PointerData
     , holdingLayerIndices : Set Int
-    , maybeRenameLayerIndex : Maybe Int
+    , layerRenameData : LayerRenameData
     }
 
 
@@ -152,10 +162,16 @@ init _ =
       , colorpalette = defaultColorpalette
       , canvasPointer = { isInside = False, isDown = False }
       , holdingLayerIndices = Set.empty
-      , maybeRenameLayerIndex = Nothing
+      , layerRenameData = LayerRenameCancel
       }
     , Cmd.none
     )
+
+
+type LayerRenameData
+    = LayerRenameReady Int
+    | LayerRenameDelay Int Time.Posix
+    | LayerRenameCancel
 
 
 
@@ -178,7 +194,9 @@ type Msg
     | AddNewLayer
     | AddCompositeLayer
     | RemoveSelectedLayer
-    | LayerRenamePointerPressed Int
+    | LayerRenameSetReady Int
+    | LayerRenameSetDelay Int Time.Posix
+    | LayerRenameTouchEnded Int Time.Posix
     | LayerRenameCanceled
     | LayerRename Int String
     | LayerHoldPointerPressed Int Bool Pointer.Event
@@ -372,11 +390,17 @@ update msg model =
             in
             ( { model | canvas = newCanvas }, Cmd.none )
 
-        LayerRenamePointerPressed index ->
-            ( { model | maybeRenameLayerIndex = Just index }, Cmd.none )
+        LayerRenameSetReady index ->
+            ( { model | layerRenameData = LayerRenameReady index }, Cmd.none )
+
+        LayerRenameSetDelay index currentTime ->
+            ( { model | layerRenameData = LayerRenameDelay index currentTime }, Cmd.none )
+
+        LayerRenameTouchEnded index currentTime ->
+            ( { model | layerRenameData = LayerRenameCancel }, Cmd.none )
 
         LayerRenameCanceled ->
-            ( { model | maybeRenameLayerIndex = Nothing }, Cmd.none )
+            ( { model | layerRenameData = LayerRenameCancel }, Cmd.none )
 
         LayerRename index name ->
             let
@@ -724,6 +748,7 @@ viewMsgButtons model =
         ]
 
 
+viewLayer : Model -> Int -> CanvasLayer -> Html Msg
 viewLayer model i layer =
     let
         selectedBorder =
@@ -760,7 +785,10 @@ viewLayer model i layer =
             , style "align-items" "center"
             , style "box-sizing" "border-box"
             , style "padding-left" "6px"
-            , onDoubleClick (LayerRenamePointerPressed i)
+            , Mouse.onDoubleClick (always (LayerRenameSetReady i))
+
+            --, Touch.onStart (always (LayerRenamePointerPressed i |> delayMsg 300 |> RunCmd))
+            , Touch.onStart (always (layerRenameSetDelay i |> RunCmd))
             , Pointer.onLeave (always LayerRenameCanceled)
 
             --, Pointer.onOut (always LayerRenameCanceled)
@@ -778,21 +806,20 @@ viewLayer model i layer =
             , Pointer.onMove (LayerHoldPointerMoved i)
             , id (canvasLayerElementId layer)
             ]
-            [ model.maybeRenameLayerIndex
-                |> Maybe.Extra.filter ((==) i)
-                |> Maybe.Extra.unwrap (text layer.name)
-                    (always
-                        (input
+            [ case model.layerRenameData of
+                LayerRenameReady i0 ->
+                    if i == i0 then
+                        input
                             [ value layer.name
-
-                            --, placeholder layer.name
                             , onInput (LayerRename i)
-
-                            --, style "padding" "0"
                             ]
                             []
-                        )
-                    )
+
+                    else
+                        text layer.name
+
+                _ ->
+                    text layer.name
             ]
         , button [ onClick (ToggleLayerVisibility i) ]
             [ if layer.isVisible then
@@ -804,6 +831,7 @@ viewLayer model i layer =
         ]
 
 
+viewLayers : Model -> Html Msg
 viewLayers model =
     div
         [ style "margin" (String.fromFloat config.defaultMargin)
