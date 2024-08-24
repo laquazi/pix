@@ -1,4 +1,4 @@
-module Canvas exposing (..)
+module Canvas.Canvas exposing (..)
 
 import Color exposing (Color)
 import Common exposing (colorBlendingNormal, listInsertAt)

@@ -1,7 +1,7 @@
 module Main exposing (..)
 
 import Browser
-import Canvas exposing (Canvas, CanvasLayer)
+import Canvas.Canvas as Canvas exposing (Canvas, CanvasLayer)
 import Color exposing (Color)
 import Color.Blending
 import Color.Convert
@@ -30,6 +30,18 @@ import Svg exposing (defs, pattern, rect, svg)
 import Svg.Attributes exposing (fill, height, id, patternUnits, shapeRendering, stroke, strokeWidth, width, x, y)
 import Task exposing (Task)
 import Time
+
+
+
+-- FIXME: long touch does not work
+-- FIXME: rename layer ui does not allow actual input
+-- TODO: split this file into several
+-- FIXME: drawing on mobile is now broken, probably because of the new pointer capture
+-- TODO: make naming more consistent
+-- TODO: add separate colorpalette that contains all colors already used on all layers (and probably a button to hide those from hidden layers)
+-- TODO: add region selection, copy and paste
+-- TODO: add a `pattern area` aka latest copied regions
+-- TODO: add more `canvas layouts`. quadtree is one of them, add nontree(?)(9), add hex
 
 
 quad0 =
@@ -63,15 +75,15 @@ type alias ImageDownloadData =
     }
 
 
-canvasLayerElementId layer =
-    "layer:" ++ layer.name
-
-
 coordVisual2Data : Point -> Int -> Int -> Point
 coordVisual2Data { x, y } scale size =
     { x = (x * (2 ^ scale)) // size
     , y = (y * (2 ^ scale)) // size
     }
+
+
+canvasLayerElementId layer =
+    "layer:" ++ layer.name
 
 
 doAtCoord : Point -> (Point -> Int -> Quadtree Color -> Quadtree Color) -> Model -> Canvas
@@ -267,14 +279,14 @@ update msg model =
                         , y = ceiling y
                         }
                         |> cmd
-                    , Ports.encodeCapturePointerById event.pointerId "canvasRuler"
+                    , Ports.encodeCapturePointerById event.pointerId "canvasContainer"
                         |> Ports.pointerSetCaptureById
                     ]
                 )
 
             else
                 ( { model | canvasPointer = newCanvasPointer }
-                , Ports.encodeCapturePointerById event.pointerId "canvasRuler"
+                , Ports.encodeCapturePointerById event.pointerId "canvasContainer"
                     |> Ports.pointerReleaseCaptureById
                 )
 
@@ -626,19 +638,11 @@ viewRuler scale maxSize isVisible =
     in
     div
         [ style "position" "absolute"
-        , style "z-index" (String.fromFloat (config.zIndex.canvas + 1))
+        , style "z-index" (String.fromFloat config.zIndex.canvasRuler)
         , style "width" (px maxSize)
         , style "height" (px maxSize)
-        , id "canvasRuler"
-        , style "touch-action" "none"
-        , Pointer.onEnter (CanvasPointerInside True)
-        , Pointer.onLeave (CanvasPointerInside False)
-        , Pointer.onOver (CanvasPointerInside True)
-        , Pointer.onOut (CanvasPointerInside False)
-        , Pointer.onDown (CanvasPointerPressed True)
-        , Pointer.onUp (CanvasPointerPressed False)
-        , Pointer.onCancel (CanvasPointerPressed False)
-        , Pointer.onMove CanvasPointerMoved
+
+        --, style "touch-action" "none"
         , if isVisible then
             style "opacity" "100%"
 
@@ -687,7 +691,7 @@ viewRuler scale maxSize isVisible =
         ]
 
 
-viewCanvas model =
+viewCanvasContainer model =
     let
         canvas =
             model.canvas
@@ -695,6 +699,19 @@ viewCanvas model =
     div
         [ style "position" "relative"
         , style "margin" (px config.defaultMargin)
+        , Pointer.onEnter (CanvasPointerInside True)
+        , Pointer.onLeave (CanvasPointerInside False)
+        , Pointer.onOver (CanvasPointerInside True)
+        , Pointer.onOut (CanvasPointerInside False)
+        , Pointer.onDown (CanvasPointerPressed True)
+        , Pointer.onUp (CanvasPointerPressed False)
+
+        --, Pointer.onCancel (CanvasPointerPressed False)
+        , Pointer.onMove CanvasPointerMoved
+        , id "canvasContainer"
+
+        --, style "touch-action" "none"
+        --, style "z-index" (String.fromFloat config.zIndex.canvasContainer)
         ]
         [ viewRuler (toFloat model.scale) (toFloat model.size) model.isRulerVisible
         , canvas
@@ -872,7 +889,7 @@ view model =
         , style "height" "100%"
         ]
         [ viewMsgButtons model
-        , viewCanvas model
+        , viewCanvasContainer model
         , viewSelectedColor model
         , viewColorpalette model
         , viewLayers model

@@ -14,7 +14,10 @@ config =
         }
     , zIndex =
         { canvas = 0
-        , floatingElement = 4
+        , canvasRuler = 1
+
+        --, canvasContainer = 4
+        --, floatingElement = 8
         }
     , defaultMargin = 10
     , layerPreviewSize = 64
