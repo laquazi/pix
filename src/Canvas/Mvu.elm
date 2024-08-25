@@ -1,6 +1,6 @@
 module Canvas.Mvu exposing (..)
 
-import Canvas.Layers as Canvas exposing (..)
+import Canvas.Layers as Layers exposing (..)
 import Color exposing (Color)
 import Color.Convert
 import Common exposing (..)
@@ -18,10 +18,10 @@ import Html.Events.Extra.Touch as Touch
 import Image exposing (Image)
 import Image.Advanced
 import Image.Color
-import List.Extra
 import Ports
 import Quadtree exposing (..)
 import Result.Extra
+import SelectArray
 import Set exposing (Set)
 import Svg exposing (defs, pattern, rect, svg)
 import Svg.Attributes exposing (fill, height, patternUnits, shapeRendering, stroke, strokeWidth, width)
@@ -89,10 +89,10 @@ canvasLayerElementId layer =
     "layer:" ++ layer.name
 
 
-doAtCoord : Point -> (Point -> Int -> Quadtree Color -> Quadtree Color) -> Model -> Canvas
+doAtCoord : Point -> (Point -> Int -> Quadtree Color -> Quadtree Color) -> Model -> Layers
 doAtCoord visualCoord f model =
-    model.canvas
-        |> Canvas.updateSelectedLayer
+    model.layers
+        |> SelectArray.updateSelected
             (\layer ->
                 { layer
                     | data =
@@ -113,7 +113,7 @@ downloadRasterImage imageFormatData imageDownloadData image2bytes tree =
 
 captureLayer capture index event layers =
     layers
-        |> List.Extra.getAt index
+        |> SelectArray.getAt index
         |> Maybe.map
             (\layer ->
                 Ports.encodeCapturePointerById event.pointerId (canvasLayerElementId layer)
@@ -135,7 +135,7 @@ layerRenameResolved index =
 
 
 type alias Model =
-    { canvas : Canvas
+    { layers : Layers
     , scale : Int
     , isRulerVisible : Bool
     , size : Int
@@ -150,7 +150,7 @@ type alias Model =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { canvas = Canvas.default
+    ( { layers = Layers.default
       , scale = 3
       , isRulerVisible = True
       , size = 512
@@ -304,7 +304,7 @@ update msg model =
         TryUseTool visualCoord ->
             if model.canvasPointer.isInside && model.canvasPointer.isDown then
                 let
-                    newCanvas =
+                    newLayers =
                         case model.tool of
                             Pencil ->
                                 model
@@ -316,7 +316,7 @@ update msg model =
                                     |> doAtCoord visualCoord
                                         (insertAtCoord QuadEmpty)
                 in
-                ( { model | canvas = newCanvas }, Cmd.none )
+                ( { model | layers = newLayers }, Cmd.none )
 
             else
                 ( model, Cmd.none )
@@ -330,56 +330,54 @@ update msg model =
 
         CanvasClearLayer ->
             let
-                newCanvas =
-                    model.canvas
-                        |> Canvas.updateSelectedLayer (\layer -> { layer | data = QuadEmpty })
+                newLayers =
+                    model.layers
+                        |> SelectArray.updateSelected (\layer -> { layer | data = QuadEmpty })
             in
-            ( { model | canvas = newCanvas }, Cmd.none )
+            ( { model | layers = newLayers }, Cmd.none )
 
         Noop ->
             ( model, Cmd.none )
 
         ChangeSelectedLayer index ->
             let
-                canvas =
-                    model.canvas
-
-                newCanvas =
-                    { canvas | selectedLayerIndex = index }
+                newLayers =
+                    model.layers
+                        |> SelectArray.setSelection index
             in
-            ( { model | canvas = newCanvas }, Cmd.none )
+            ( { model | layers = newLayers }, Cmd.none )
 
         ToggleLayerVisibility index ->
             let
-                newCanvas =
-                    model.canvas
-                        |> Canvas.updateLayer index (\layer -> { layer | isVisible = not layer.isVisible })
+                newLayers =
+                    model.layers
+                        |> SelectArray.updateAt index (\layer -> { layer | isVisible = not layer.isVisible })
             in
-            ( { model | canvas = newCanvas }, Cmd.none )
+            ( { model | layers = newLayers }, Cmd.none )
 
         AddNewLayer ->
             let
-                newCanvas =
-                    model.canvas
-                        |> Canvas.addEmpty
+                newLayers =
+                    model.layers
+                        |> Layers.addEmpty
             in
-            ( { model | canvas = newCanvas }, Cmd.none )
+            ( { model | layers = newLayers }, Cmd.none )
 
         AddCompositeLayer ->
             let
-                newCanvas =
-                    model.canvas
-                        |> Canvas.addCompositeLayer
+                newLayers =
+                    model.layers
+                        |> Layers.addComposite
             in
-            ( { model | canvas = newCanvas }, Cmd.none )
+            ( { model | layers = newLayers }, Cmd.none )
 
         RemoveSelectedLayer ->
             let
-                newCanvas =
-                    model.canvas
-                        |> Canvas.removeSelectedLayer
+                newLayers =
+                    model.layers
+                        |> SelectArray.removeSelected
             in
-            ( { model | canvas = newCanvas }, Cmd.none )
+            ( { model | layers = newLayers }, Cmd.none )
 
         LayerRenameSetReady index ->
             ( { model | layerRenameData = LayerRenameReady index }, Cmd.none )
@@ -409,13 +407,13 @@ update msg model =
         LayerRename index name ->
             let
                 canvas =
-                    model.canvas
+                    model.layers
 
-                newCanvas =
+                newLayers =
                     canvas
-                        |> Canvas.updateLayer index (\layer -> { layer | name = name })
+                        |> SelectArray.updateAt index (\layer -> { layer | name = name })
             in
-            ( { model | canvas = newCanvas }, Cmd.none )
+            ( { model | layers = newLayers }, Cmd.none )
 
         LayerHoldPointerPressed index isDown event ->
             let
@@ -425,12 +423,12 @@ update msg model =
                 ( newHoldingLayerIndices, newCmd ) =
                     if isDown then
                         ( holdingLayerIndices |> Set.insert index
-                        , captureLayer Ports.pointerSetCaptureById index event model.canvas.layers
+                        , captureLayer Ports.pointerSetCaptureById index event model.layers
                         )
 
                     else
                         ( holdingLayerIndices |> Set.remove index
-                        , captureLayer Ports.pointerReleaseCaptureById index event model.canvas.layers
+                        , captureLayer Ports.pointerReleaseCaptureById index event model.layers
                         )
             in
             ( { model | holdingLayerIndices = newHoldingLayerIndices }, newCmd )
@@ -459,34 +457,31 @@ update msg model =
                         visualCoord.y // -config.layerPreviewSize + 1
 
                 swapIndex =
-                    index + indexOffset |> clamp 0 (List.length model.canvas.layers - 1)
+                    index + indexOffset |> clamp 0 (SelectArray.length model.layers - 1)
             in
             if isHolding && not isHeightBounded && swapIndex /= index then
                 let
-                    canvas =
-                        model.canvas
+                    newLayers0 =
+                        model.layers
+                            |> SelectArray.swapAt index swapIndex
 
                     newLayers =
-                        canvas.layers
-                            |> List.Extra.swapAt index swapIndex
+                        if model.layers |> SelectArray.isSelection index then
+                            newLayers0 |> SelectArray.setSelection swapIndex
 
-                    newCanvas =
-                        if canvas.selectedLayerIndex == index then
-                            { canvas | layers = newLayers, selectedLayerIndex = swapIndex }
-
-                        else if canvas.selectedLayerIndex == swapIndex then
-                            { canvas | layers = newLayers, selectedLayerIndex = index }
+                        else if model.layers |> SelectArray.isSelection swapIndex then
+                            newLayers0 |> SelectArray.setSelection index
 
                         else
-                            { canvas | layers = newLayers }
+                            newLayers0
 
                     newHoldingLayerIndices =
                         model.holdingLayerIndices |> Set.insert swapIndex |> Set.remove index
                 in
-                ( { model | canvas = newCanvas, holdingLayerIndices = newHoldingLayerIndices }
+                ( { model | layers = newLayers, holdingLayerIndices = newHoldingLayerIndices }
                 , Cmd.batch
-                    [ captureLayer Ports.pointerSetCaptureById swapIndex event model.canvas.layers
-                    , captureLayer Ports.pointerReleaseCaptureById index event model.canvas.layers
+                    [ captureLayer Ports.pointerSetCaptureById swapIndex event model.layers
+                    , captureLayer Ports.pointerReleaseCaptureById index event model.layers
                     ]
                 )
 
@@ -496,11 +491,11 @@ update msg model =
         DownloadCanvas imageDownloadData ->
             let
                 canvas =
-                    model.canvas
+                    model.layers
 
                 optimizedTree =
                     canvas
-                        |> Canvas.mergeVisible
+                        |> Layers.mergeVisible
                         |> Quadtree.optimize
 
                 -- FIXME: do bmp and gif support transparency? choose another color if not. gif and svg dont work with big files. DON'T scale quadtree, it gets slow real fast, maybe ditch support for anything except png, it seems to work best
@@ -558,16 +553,13 @@ update msg model =
 
         UploadCanvasLoaded maybeQuadtree ->
             let
-                canvas =
-                    model.canvas
-
-                newCanvas =
+                newLayers =
                     maybeQuadtree
                         |> Maybe.map
-                            (\quadtree -> canvas |> Canvas.addLayer quadtree)
-                        |> Maybe.withDefault canvas
+                            (\quadtree -> model.layers |> Layers.addLayer quadtree)
+                        |> Maybe.withDefault model.layers
             in
-            ( { model | canvas = newCanvas }, Cmd.none )
+            ( { model | layers = newLayers }, Cmd.none )
 
         MsgBatch msgs ->
             ( model, msgs |> List.map cmd |> Cmd.batch )
@@ -660,7 +652,7 @@ viewRuler scale maxSize isVisible =
 viewCanvasContainer model =
     let
         canvas =
-            model.canvas
+            model.layers
     in
     div
         [ style "position" "relative"
@@ -681,7 +673,7 @@ viewCanvasContainer model =
         ]
         [ viewRuler (toFloat model.scale) (toFloat model.size) model.isRulerVisible
         , canvas
-            |> Canvas.mergeVisible
+            |> Layers.mergeVisible
             |> viewQuadtree (toFloat model.size) colorTransparent
         ]
 
@@ -739,7 +731,7 @@ viewLayer model i layer =
             , style "height" (px config.layerPreviewSize)
             , onClick (ChangeSelectedLayer i)
             , style "box-sizing" "border-box"
-            , if model.canvas.selectedLayerIndex == i then
+            , if model.layers |> SelectArray.isSelection i then
                 style "border" (px selectedBorder ++ " solid #D58F17")
 
               else
@@ -747,7 +739,7 @@ viewLayer model i layer =
             ]
             [ layer.data
                 |> viewQuadtree
-                    (if model.canvas.selectedLayerIndex == i then
+                    (if model.layers |> SelectArray.isSelection i then
                         toFloat config.layerPreviewSize - (selectedBorder * 2)
 
                      else
@@ -823,5 +815,5 @@ viewLayers model =
             , style "flex-direction" "column-reverse"
             , style "border" "1px solid #000"
             ]
-            (model.canvas.layers |> List.indexedMap (viewLayer model))
+            (model.layers |> SelectArray.toList |> List.indexedMap (viewLayer model))
         ]

@@ -1,8 +1,8 @@
-module Canvas.Canvas exposing (..)
+module Canvas.Layers exposing (..)
 
 import Color exposing (Color)
-import Common exposing (colorBlendingNormal, listInsertAt)
-import List.Extra
+import Common exposing (colorBlendingNormal)
+import Maybe.Extra
 import Parser exposing ((|.), (|=), Parser)
 import Quadtree exposing (Quadtree(..))
 import SelectArray exposing (SelectArray(..))
@@ -16,19 +16,14 @@ type alias Layer =
     }
 
 
-{-| NOTE: (from top to bottom)
--}
-type alias Canvas =
-    SelectArray
-        { layers : List Layer
-        , selectedLayerIndex : Int
-        }
+type alias Layers =
+    SelectArray Layer
 
 
-mergeLayers : Canvas -> Quadtree Color
-mergeLayers canvas =
-    canvas.layers
-        |> List.foldr
+merge : Layers -> Quadtree Color
+merge layers =
+    layers
+        |> SelectArray.foldr
             (\layer ( accTree, accBlend ) ->
                 ( Quadtree.merge accBlend accTree layer.data
                 , layer.blendingMode |> Maybe.withDefault colorBlendingNormal
@@ -38,14 +33,15 @@ mergeLayers canvas =
         |> Tuple.first
 
 
-mergeVisibleLayers : Canvas -> Quadtree Color
-mergeVisibleLayers canvas =
-    { canvas | layers = canvas.layers |> List.filter .isVisible }
-        |> mergeLayers
+mergeVisible : Layers -> Quadtree Color
+mergeVisible layers =
+    layers
+        |> SelectArray.filter .isVisible
+        |> merge
 
 
-layerEmpty : Layer
-layerEmpty =
+emptyLayer : Layer
+emptyLayer =
     { data = QuadEmpty
     , blendingMode = Nothing
     , name = ""
@@ -53,12 +49,12 @@ layerEmpty =
     }
 
 
-default : Canvas
+default : Layers
 default =
-    { layers = [ { layerEmpty | name = "Background", data = QuadLeaf Color.white } ]
-    , selectedLayerIndex = 0
-    }
-        |> addEmptyLayer
+    [ { emptyLayer | name = "Background", data = QuadLeaf Color.white } ]
+        |> SelectArray.fromList
+        |> SelectArray.setSelection 0
+        |> addEmpty
 
 
 parserLayerName : String -> Parser Int
@@ -69,75 +65,42 @@ parserLayerName prefix =
         |= Parser.int
 
 
-addLayerWithPrefix : String -> Quadtree Color -> Canvas -> Canvas
-addLayerWithPrefix prefix data canvas =
+addWithPrefix : String -> Quadtree Color -> Layers -> Layers
+addWithPrefix prefix data layers =
     let
         nameIndex =
-            canvas.layers
-                |> List.filterMap
+            layers
+                |> SelectArray.filterMap
                     (\layer -> Parser.run (parserLayerName prefix) layer.name |> Result.toMaybe)
-                |> List.maximum
+                |> SelectArray.maximum
                 |> Maybe.withDefault 0
 
         newLayer =
-            { layerEmpty
+            { emptyLayer
                 | name = prefix ++ " " ++ String.fromInt (nameIndex + 1)
                 , data = data
             }
+
+        newSelection =
+            layers
+                |> SelectArray.getSelection
+                |> Maybe.Extra.unwrap (SelectArray.length layers) ((+) 1)
     in
-    { canvas
-        | layers = canvas.layers |> listInsertAt (canvas.selectedLayerIndex + 1) newLayer
-        , selectedLayerIndex = canvas.selectedLayerIndex + 1
-    }
+    layers
+        |> SelectArray.insertAt newSelection newLayer
+        |> SelectArray.setSelection newSelection
 
 
-addLayer : Quadtree Color -> Canvas -> Canvas
-addLayer data canvas =
-    addLayerWithPrefix "Layer" data canvas
+addLayer : Quadtree Color -> Layers -> Layers
+addLayer =
+    addWithPrefix "Layer"
 
 
-addCompositeLayer : Canvas -> Canvas
-addCompositeLayer canvas =
-    addLayerWithPrefix "Composite layer" (canvas |> mergeVisibleLayers) canvas
+addComposite : Layers -> Layers
+addComposite layers =
+    layers |> addWithPrefix "Composite layer" (layers |> mergeVisible)
 
 
-addEmptyLayer : Canvas -> Canvas
-addEmptyLayer canvas =
-    addLayer layerEmpty.data canvas
-
-
-removeLayer : Int -> Canvas -> Canvas
-removeLayer index canvas =
-    let
-        newLayers =
-            canvas.layers
-                |> List.Extra.removeAt index
-
-        newLayersLength =
-            List.length newLayers
-    in
-    if index < newLayersLength then
-        { canvas | layers = newLayers }
-
-    else
-        { canvas | layers = newLayers, selectedLayerIndex = newLayersLength - 1 }
-
-
-updateLayer : Int -> (Layer -> Layer) -> Canvas -> Canvas
-updateLayer index f canvas =
-    let
-        newLayers =
-            canvas.layers
-                |> List.Extra.updateAt index f
-    in
-    { canvas | layers = newLayers }
-
-
-removeSelectedLayer : Canvas -> Canvas
-removeSelectedLayer canvas =
-    canvas |> removeLayer canvas.selectedLayerIndex
-
-
-updateSelectedLayer : (Layer -> Layer) -> Canvas -> Canvas
-updateSelectedLayer f canvas =
-    canvas |> updateLayer canvas.selectedLayerIndex f
+addEmpty : Layers -> Layers
+addEmpty =
+    addLayer emptyLayer.data

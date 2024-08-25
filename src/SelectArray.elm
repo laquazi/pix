@@ -3,17 +3,8 @@ module SelectArray exposing (..)
 import Array exposing (Array)
 import Array.Extra
 import Common exposing (..)
-import Debug exposing (log)
+import List.Extra
 import Maybe.Extra
-
-
-testSelectArrays () =
-    [ fromList [] |> setSelection 0
-    , fromList [ 1 ] |> setSelection -1
-    , fromList [ 1 ] |> setSelection 0
-    , fromList [ 1 ] |> setSelection 1
-    ]
-        |> List.map (log "ensured")
 
 
 {-| Array that has 0 or 1 item selected by index.
@@ -21,6 +12,8 @@ Ensures that the index is bounded, and adjusts the index if necessary.
 The module contains at least everything from `elm/core` Array.
 WARN: untested
 TODO: sanity check every function (especially the case of adding `ensure`)
+TODO: consider a more detailed approach: track actual items instead of indices
+TODO: consider expanding the type `Selected Int (Array a) -> Selected (Set Int) (Array a)`, just add functions to differentiate behaviors: selectSingle, selectMultiple, etc
 -}
 type SelectArray a
     = Empty
@@ -152,6 +145,20 @@ updateSelection f array =
                     |> Maybe.Extra.unwrap (NotSelected x) (flip Selected x)
 
 
+update : (Maybe Int -> Array a -> SelectArray b) -> SelectArray a -> SelectArray b
+update f array =
+    ensure <|
+        case array of
+            Empty ->
+                f Nothing Array.empty
+
+            NotSelected x ->
+                f Nothing x
+
+            Selected i x ->
+                f (Just i) x
+
+
 thenUpdate : (Array a -> Array b) -> SelectArray a -> SelectArray b
 thenUpdate f array =
     ensure <|
@@ -211,23 +218,33 @@ isSelected array =
             False
 
 
+isSelection : Int -> SelectArray a -> Bool
+isSelection index array =
+    case array of
+        Selected i _ ->
+            index == i
+
+        _ ->
+            False
+
+
 length : SelectArray a -> Int
 length =
     thenCast <| Array.length
 
 
-get : Int -> SelectArray a -> Maybe a
-get index =
+getAt : Int -> SelectArray a -> Maybe a
+getAt index =
     thenCast <| Array.get index
 
 
-set : Int -> a -> SelectArray a -> SelectArray a
-set index value =
+setAt : Int -> a -> SelectArray a -> SelectArray a
+setAt index value =
     thenUpdate <| Array.set index value
 
 
-update : Int -> (a -> a) -> SelectArray a -> SelectArray a
-update index f =
+updateAt : Int -> (a -> a) -> SelectArray a -> SelectArray a
+updateAt index f =
     thenUpdate <| Array.Extra.update index f
 
 
@@ -259,6 +276,17 @@ updateSelected f array =
 
         _ ->
             array
+
+
+removeSelected : SelectArray a -> SelectArray a
+removeSelected array =
+    ensure <|
+        case array of
+            Selected i x ->
+                x |> Array.Extra.removeAt i |> NotSelected
+
+            _ ->
+                array
 
 
 insertAt : Int -> a -> SelectArray a -> SelectArray a
@@ -339,3 +367,24 @@ maximum =
 minimum : SelectArray comparable -> Maybe comparable
 minimum =
     toList >> List.minimum
+
+
+swapAt : Int -> Int -> SelectArray a -> SelectArray a
+swapAt a b array =
+    case array of
+        Empty ->
+            Empty
+
+        NotSelected x ->
+            x
+                |> Array.toList
+                |> List.Extra.swapAt a b
+                |> Array.fromList
+                |> NotSelected
+
+        Selected i x ->
+            x
+                |> Array.toList
+                |> List.Extra.swapAt a b
+                |> Array.fromList
+                |> Selected i
