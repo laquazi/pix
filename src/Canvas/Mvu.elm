@@ -1,6 +1,6 @@
 module Canvas.Mvu exposing (..)
 
-import Canvas.Canvas as Canvas exposing (..)
+import Canvas.Layers as Canvas exposing (..)
 import Color exposing (Color)
 import Color.Convert
 import Common exposing (..)
@@ -361,7 +361,7 @@ update msg model =
             let
                 newCanvas =
                     model.canvas
-                        |> Canvas.addEmptyLayer
+                        |> Canvas.addEmpty
             in
             ( { model | canvas = newCanvas }, Cmd.none )
 
@@ -500,7 +500,7 @@ update msg model =
 
                 optimizedTree =
                     canvas
-                        |> Canvas.mergeVisibleLayers
+                        |> Canvas.mergeVisible
                         |> Quadtree.optimize
 
                 -- FIXME: do bmp and gif support transparency? choose another color if not. gif and svg dont work with big files. DON'T scale quadtree, it gets slow real fast, maybe ditch support for anything except png, it seems to work best
@@ -681,7 +681,7 @@ viewCanvasContainer model =
         ]
         [ viewRuler (toFloat model.scale) (toFloat model.size) model.isRulerVisible
         , canvas
-            |> Canvas.mergeVisibleLayers
+            |> Canvas.mergeVisible
             |> viewQuadtree (toFloat model.size) colorTransparent
         ]
 

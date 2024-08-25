@@ -1,6 +1,7 @@
 module SelectArray exposing (..)
 
 import Array exposing (Array)
+import Array.Extra
 import Debug exposing (log)
 
 
@@ -191,6 +192,16 @@ get index =
     thenCast <| Array.get index
 
 
+set : Int -> a -> SelectArray a -> SelectArray a
+set index value =
+    thenUpdate <| Array.set index value
+
+
+update : Int -> (a -> a) -> SelectArray a -> SelectArray a
+update index f =
+    thenUpdate <| Array.Extra.update index f
+
+
 getSelected : SelectArray a -> Maybe a
 getSelected array =
     case array of
@@ -201,14 +212,44 @@ getSelected array =
             Nothing
 
 
-set : Int -> a -> SelectArray a -> SelectArray a
-set index value =
-    thenUpdate <| Array.set index value
+setSelected : a -> SelectArray a -> SelectArray a
+setSelected value array =
+    case array of
+        Selected i x ->
+            x |> Array.set i value |> Selected i
+
+        _ ->
+            array
+
+
+updateSelected : (a -> a) -> SelectArray a -> SelectArray a
+updateSelected f array =
+    case array of
+        Selected i x ->
+            x |> Array.Extra.update i f |> Selected i
+
+        _ ->
+            array
+
+
+insertAt : Int -> a -> SelectArray a -> SelectArray a
+insertAt index value =
+    thenUpdate <| Array.Extra.insertAt index value
+
+
+removeAt : Int -> SelectArray a -> SelectArray a
+removeAt =
+    thenUpdate << Array.Extra.removeAt
 
 
 push : a -> SelectArray a -> SelectArray a
 push =
     thenUpdate << Array.push
+
+
+pop : SelectArray a -> SelectArray a
+pop =
+    thenUpdate <| Array.Extra.pop
 
 
 {-| NOTE: same as `thenUpdate <| Array.append toAppend array`, but more efficient
@@ -254,3 +295,18 @@ foldl f acc =
 foldr : (a -> b -> b) -> b -> SelectArray a -> b
 foldr f acc =
     thenCast <| Array.foldr f acc
+
+
+filterMap : (a -> Maybe b) -> SelectArray a -> SelectArray b
+filterMap f =
+    thenUpdate <| Array.Extra.filterMap f
+
+
+maximum : SelectArray comparable -> Maybe comparable
+maximum =
+    toList >> List.maximum
+
+
+minimum : SelectArray comparable -> Maybe comparable
+minimum =
+    toList >> List.minimum

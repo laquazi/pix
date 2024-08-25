@@ -5,6 +5,7 @@ import Common exposing (colorBlendingNormal, listInsertAt)
 import List.Extra
 import Parser exposing ((|.), (|=), Parser)
 import Quadtree exposing (Quadtree(..))
+import SelectArray exposing (SelectArray(..))
 
 
 type alias Layer =
@@ -18,9 +19,10 @@ type alias Layer =
 {-| NOTE: (from top to bottom)
 -}
 type alias Canvas =
-    { layers : List Layer
-    , selectedLayerIndex : Int
-    }
+    SelectArray
+        { layers : List Layer
+        , selectedLayerIndex : Int
+        }
 
 
 mergeLayers : Canvas -> Quadtree Color
