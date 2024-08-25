@@ -725,7 +725,7 @@ viewSelectedColor model =
         ]
 
 
-viewLayer : Model -> Int -> CanvasLayer -> Html Msg
+viewLayer : Model -> Int -> Layer -> Html Msg
 viewLayer model i layer =
     let
         selectedBorder =

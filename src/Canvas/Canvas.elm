@@ -7,7 +7,7 @@ import Parser exposing ((|.), (|=), Parser)
 import Quadtree exposing (Quadtree(..))
 
 
-type alias CanvasLayer =
+type alias Layer =
     { data : Quadtree Color
     , blendingMode : Maybe (Color -> Color -> Color)
     , name : String
@@ -18,7 +18,7 @@ type alias CanvasLayer =
 {-| NOTE: (from top to bottom)
 -}
 type alias Canvas =
-    { layers : List CanvasLayer
+    { layers : List Layer
     , selectedLayerIndex : Int
     }
 
@@ -42,7 +42,7 @@ mergeVisibleLayers canvas =
         |> mergeLayers
 
 
-layerEmpty : CanvasLayer
+layerEmpty : Layer
 layerEmpty =
     { data = QuadEmpty
     , blendingMode = Nothing
@@ -121,7 +121,7 @@ removeLayer index canvas =
         { canvas | layers = newLayers, selectedLayerIndex = newLayersLength - 1 }
 
 
-updateLayer : Int -> (CanvasLayer -> CanvasLayer) -> Canvas -> Canvas
+updateLayer : Int -> (Layer -> Layer) -> Canvas -> Canvas
 updateLayer index f canvas =
     let
         newLayers =
@@ -136,6 +136,6 @@ removeSelectedLayer canvas =
     canvas |> removeLayer canvas.selectedLayerIndex
 
 
-updateSelectedLayer : (CanvasLayer -> CanvasLayer) -> Canvas -> Canvas
+updateSelectedLayer : (Layer -> Layer) -> Canvas -> Canvas
 updateSelectedLayer f canvas =
     canvas |> updateLayer canvas.selectedLayerIndex f

@@ -9,6 +9,7 @@ import Debug exposing (log)
 import Html exposing (Html, button, div, text)
 import Html.Attributes exposing (style, value)
 import Html.Events exposing (onClick)
+import SelectArray
 
 
 logCmd : String -> a -> Cmd Msg
@@ -96,7 +97,7 @@ update msg model =
         Test ->
             let
                 _ =
-                    "test"
+                    SelectArray.testSelectArrays
             in
             ( model, Cmd.none )
 
