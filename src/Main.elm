@@ -97,7 +97,7 @@ update msg model =
         Test ->
             let
                 _ =
-                    SelectArray.testSelectArrays
+                    SelectArray.testSelectArrays ()
             in
             ( model, Cmd.none )
 
