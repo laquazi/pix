@@ -7,8 +7,10 @@ import Debug exposing (log)
 {-| Array that has 0 or 1 item selected by index.
 Ensures that the index is bounded, and adjusts the index if necessary.
 -}
-type alias SelectArray a =
-    Maybe ( Array a, Maybe Int )
+type SelectArray a
+    = Empty
+    | NotSelected (Array a)
+    | Selected (Array a) Int
 
 
 testSelectArrays =
@@ -17,61 +19,94 @@ testSelectArrays =
     , fromList [ 1 ] |> select 0
     , fromList [ 1 ] |> select 1
     ]
-        |> List.map (log "before" >> clamp >> log "after")
-
-
-empty : SelectArray a
-empty =
-    Nothing
+        |> List.map (log "before" >> ensure >> log "after")
 
 
 fromArray : Array a -> SelectArray a
-fromArray array =
-    Just ( array, Nothing ) |> clamp
+fromArray =
+    NotSelected >> ensure
 
 
 fromList : List a -> SelectArray a
-fromList list =
-    Just ( Array.fromList list, Nothing ) |> clamp
+fromList =
+    Array.fromList >> fromArray
 
 
-clamp : SelectArray a -> SelectArray a
-clamp =
-    Maybe.andThen
-        (\( x, i ) ->
+ensure : SelectArray a -> SelectArray a
+ensure array =
+    case array of
+        Empty ->
+            Empty
+
+        NotSelected x ->
             if Array.isEmpty x then
-                Nothing
+                Empty
 
             else
-                Just
-                    ( x
-                    , i
-                        |> Maybe.map (Basics.clamp 0 (Array.length x - 1))
-                    )
-        )
+                NotSelected x
+
+        Selected x i ->
+            if Array.isEmpty x then
+                Empty
+
+            else
+                Selected x (i |> Basics.clamp 0 (Array.length x - 1))
 
 
-thenClamp : (SelectArray a -> SelectArray b) -> SelectArray a -> SelectArray b
-thenClamp f =
-    f >> clamp
+thenEnsure : (SelectArray a -> SelectArray b) -> SelectArray a -> SelectArray b
+thenEnsure f =
+    f >> ensure
 
 
 select : Int -> SelectArray a -> SelectArray a
-select index =
-    thenClamp <| Maybe.map <| Tuple.mapSecond <| always <| Just index
+select index array =
+    ensure <|
+        case array of
+            Empty ->
+                Empty
+
+            NotSelected x ->
+                Selected x index
+
+            Selected x _ ->
+                Selected x index
 
 
 deselect : SelectArray a -> SelectArray a
-deselect =
-    Maybe.map <| Tuple.mapSecond <| always Nothing
+deselect array =
+    case array of
+        Selected x _ ->
+            NotSelected x
+
+        _ ->
+            array
 
 
 thenUpdate : (Array a -> Array b) -> SelectArray a -> SelectArray b
-thenUpdate f =
-    Maybe.withDefault ( Array.empty, Nothing )
-        >> Tuple.mapFirst f
-        >> Just
-        >> clamp
+thenUpdate f array =
+    ensure <|
+        case array of
+            Empty ->
+                NotSelected (f Array.empty)
+
+            NotSelected x ->
+                NotSelected (f x)
+
+            Selected x i ->
+                Selected (f x) i
+
+
+thenCast : (Array a -> b) -> SelectArray a -> b
+thenCast f array =
+    case array of
+        Empty ->
+            f Array.empty
+
+        NotSelected x ->
+            f x
+
+        Selected x _ ->
+            f x
 
 
 push : a -> SelectArray a -> SelectArray a
@@ -82,3 +117,33 @@ push =
 initialize : Int -> (Int -> a) -> SelectArray a
 initialize n f =
     Array.initialize n f |> fromArray
+
+
+repeat : Int -> a -> SelectArray a
+repeat n value =
+    value |> Array.repeat n |> fromArray
+
+
+empty : SelectArray a
+empty =
+    Empty
+
+
+isEmpty : SelectArray a -> Bool
+isEmpty array =
+    case array of
+        Empty ->
+            True
+
+        _ ->
+            False
+
+
+length : SelectArray a -> Int
+length =
+    thenCast <| Array.length
+
+
+get : Int -> SelectArray a -> Maybe a
+get index =
+    thenCast <| Array.get index
