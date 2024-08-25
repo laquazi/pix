@@ -98,3 +98,8 @@ tupleThird ( _, _, c ) =
 delayMsg : Float -> msg -> Cmd msg
 delayMsg timeMs msg =
     Process.sleep timeMs |> Task.perform (\_ -> msg)
+
+
+flip : (a -> b -> c) -> (b -> a -> c)
+flip f b a =
+    f a b

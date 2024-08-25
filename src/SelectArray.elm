@@ -2,13 +2,25 @@ module SelectArray exposing (..)
 
 import Array exposing (Array)
 import Array.Extra
+import Common exposing (..)
 import Debug exposing (log)
+import Maybe.Extra
+
+
+testSelectArrays () =
+    [ fromList [] |> setSelection 0
+    , fromList [ 1 ] |> setSelection -1
+    , fromList [ 1 ] |> setSelection 0
+    , fromList [ 1 ] |> setSelection 1
+    ]
+        |> List.map (log "ensured")
 
 
 {-| Array that has 0 or 1 item selected by index.
 Ensures that the index is bounded, and adjusts the index if necessary.
 The module contains at least everything from `elm/core` Array.
 WARN: untested
+TODO: sanity check every function (especially the case of adding `ensure`)
 -}
 type SelectArray a
     = Empty
@@ -16,13 +28,19 @@ type SelectArray a
     | Selected Int (Array a)
 
 
-testSelectArrays () =
-    [ fromList [] |> select 0
-    , fromList [ 1 ] |> select -1
-    , fromList [ 1 ] |> select 0
-    , fromList [ 1 ] |> select 1
-    ]
-        |> List.map (log "ensured")
+empty : SelectArray a
+empty =
+    Empty
+
+
+notSelected : Array a -> SelectArray a
+notSelected =
+    NotSelected
+
+
+selected : Int -> Array a -> SelectArray a
+selected =
+    Selected
 
 
 fromArray : Array a -> SelectArray a
@@ -84,8 +102,18 @@ thenEnsure f =
     f >> ensure
 
 
-select : Int -> SelectArray a -> SelectArray a
-select index array =
+getSelection : SelectArray a -> Maybe Int
+getSelection array =
+    case array of
+        Selected i _ ->
+            Just i
+
+        _ ->
+            Nothing
+
+
+setSelection : Int -> SelectArray a -> SelectArray a
+setSelection index array =
     ensure <|
         case array of
             Empty ->
@@ -98,14 +126,30 @@ select index array =
                 x |> Selected index
 
 
-deselect : SelectArray a -> SelectArray a
-deselect array =
+removeSelection : SelectArray a -> SelectArray a
+removeSelection array =
     case array of
         Selected _ x ->
             NotSelected x
 
         _ ->
             array
+
+
+updateSelection : (Maybe Int -> Maybe Int) -> SelectArray a -> SelectArray a
+updateSelection f array =
+    ensure <|
+        case array of
+            Empty ->
+                Empty
+
+            NotSelected x ->
+                f Nothing
+                    |> Maybe.Extra.unwrap (NotSelected x) (flip Selected x)
+
+            Selected i x ->
+                (f <| Just i)
+                    |> Maybe.Extra.unwrap (NotSelected x) (flip Selected x)
 
 
 thenUpdate : (Array a -> Array b) -> SelectArray a -> SelectArray b
@@ -135,21 +179,6 @@ initialize n f =
 repeat : Int -> a -> SelectArray a
 repeat n value =
     value |> Array.repeat n |> fromArray
-
-
-empty : SelectArray a
-empty =
-    Empty
-
-
-notSelected : Array a -> SelectArray a
-notSelected =
-    NotSelected
-
-
-selected : Int -> Array a -> SelectArray a
-selected =
-    Selected
 
 
 isEmpty : SelectArray a -> Bool
