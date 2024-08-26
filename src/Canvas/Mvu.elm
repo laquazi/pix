@@ -130,6 +130,32 @@ layerRenameResolved index =
     Time.now |> Task.perform (LayerRenameResolved index)
 
 
+drawLine : Point -> Point -> Model -> Model
+drawLine a b model =
+    let
+        newLayers =
+            model.layers
+                |> SelectArray.updateSelected
+                    (\layer ->
+                        let
+                            tree =
+                                case model.tool of
+                                    Pencil ->
+                                        QuadLeaf model.color
+
+                                    Eraser ->
+                                        QuadEmpty
+                        in
+                        { layer
+                            | data =
+                                layer.data
+                                    |> Quadtree.insertLine tree a b model.scale
+                        }
+                    )
+    in
+    { model | layers = newLayers }
+
+
 
 -- MODEL
 

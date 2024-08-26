@@ -14,6 +14,7 @@ WARN: untested
 TODO: sanity check every function (especially the case of adding `ensure`)
 TODO: consider a more detailed approach: track actual items instead of indices
 TODO: consider expanding the type `Selected Int (Array a) -> Selected (Set Int) (Array a)`, just add functions to differentiate behaviors: selectSingle, selectMultiple, etc
+TODO: btw `NoRedInk/list-selection` uses `type Selection a = Selection (Maybe a) (List a)`, maybe use something like that for everything?: `type SelectArray a = SelectArray (Set Int) (Array a)`
 -}
 type SelectArray a
     = Empty

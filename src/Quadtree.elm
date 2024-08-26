@@ -1,4 +1,4 @@
-module Quadtree exposing (Quadrant, Quadrants, Quadtree(..), calculateMaxDepth, calculateMaxSize, coord2quadrant, depth2quadrantSize, depth2size, fitToDepth, fitToMaxDepth, fromList, getQuadrant, getQuadrantId, insertAtCoord, merge, optimize, quadnode, repeatQuadtree, scale, scaleOnce, toCoordDict, toListWithDefault, toSvgString, viewQuadtree)
+module Quadtree exposing (Quadrant, Quadrants, Quadtree(..), calculateMaxDepth, calculateMaxSize, coord2quadrant, depth2quadrantSize, depth2size, fitToDepth, fitToMaxDepth, fromList, getQuadrant, getQuadrantId, insertAtCoord, insertLine, merge, optimize, quadnode, repeatQuadtree, scale, scaleOnce, toCoordDict, toListWithDefault, toSvgString, viewQuadtree)
 
 import Array exposing (Array)
 import Array.Extra
@@ -7,6 +7,7 @@ import Common exposing (..)
 import Dict exposing (Dict)
 import Html exposing (Html, div)
 import Html.Attributes exposing (style)
+import List.Extra
 import Maybe
 import Maybe.Extra
 import Svg exposing (g, rect, svg)
@@ -173,6 +174,47 @@ insertAtCoord insertTree ({ x, y } as coord) depth tree =
                     |> repeatQuadtree
                     |> setQuadrant quadrant newQuadrant
                     |> QuadNode
+
+
+insertLine : Quadtree a -> Point -> Point -> Int -> Quadtree a -> Quadtree a
+insertLine insertTree a b depth tree =
+    let
+        dx =
+            b.x - a.x
+
+        dy =
+            b.y - a.y
+
+        d0 =
+            2 * dy - dx
+
+        y0 =
+            a.y
+
+        maxX =
+            max a.x b.x
+
+        minX =
+            min a.x b.x
+
+        xs =
+            List.Extra.initialize (maxX - minX) ((+) minX)
+    in
+    xs
+        |> List.foldl
+            (\x ( t, d, y ) ->
+                let
+                    newTree =
+                        insertAtCoord insertTree { x = x, y = y } depth t
+                in
+                if d > 0 then
+                    ( newTree, d - 2 * dx, y + 1 )
+
+                else
+                    ( newTree, d + 2 * dy, y )
+            )
+            ( tree, d0, y0 )
+        |> (\( t, _, _ ) -> t)
 
 
 calculateMaxDepth0 : Int -> Quadtree a -> Int

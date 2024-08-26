@@ -9,6 +9,8 @@ import Debug exposing (log)
 import Html exposing (Html, button, div, text)
 import Html.Attributes exposing (style, value)
 import Html.Events exposing (onClick)
+import Quadtree exposing (Quadtree(..))
+import SelectArray
 
 
 logCmd : String -> a -> Cmd Msg
@@ -45,7 +47,7 @@ init _ =
             Canvas.Mvu.init ()
     in
     ( { canvasModel = canvasModel }
-    , Cmd.batch [ Cmd.map UpdateCanvas canvasCmd ]
+    , Cmd.batch [ Cmd.map UpdateModelCanvas canvasCmd ]
     )
 
 
@@ -61,7 +63,7 @@ type Msg
     | RunCmd (Cmd Msg)
     | WithCmd Msg (Cmd Msg)
     | Test
-    | UpdateCanvas Canvas.Mvu.Msg
+    | UpdateModelCanvas Canvas.Mvu.Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -95,17 +97,20 @@ update msg model =
 
         Test ->
             let
-                _ =
-                    ()
-            in
-            ( model, Cmd.none )
+                canvasModel =
+                    model.canvasModel
 
-        UpdateCanvas m ->
+                newCanvasModel =
+                    canvasModel |> Canvas.Mvu.drawLine { x = 1, y = 1 } { x = 6, y = 6 }
+            in
+            ( { model | canvasModel = newCanvasModel }, Cmd.none )
+
+        UpdateModelCanvas m ->
             let
                 ( newModel, newCmd ) =
                     Canvas.Mvu.update m model.canvasModel
             in
-            ( { model | canvasModel = newModel }, Cmd.map UpdateCanvas newCmd )
+            ( { model | canvasModel = newModel }, Cmd.map UpdateModelCanvas newCmd )
 
 
 
@@ -129,17 +134,17 @@ viewMsgButtons : Model -> Html Msg
 viewMsgButtons model =
     div [ style "margin" (px config.defaultMargin) ]
         [ button [ onClick Reset ] [ text "Reset" ]
-        , button [ onClick (UpdateCanvas <| CanvasClearLayer) ] [ text "Clear" ]
-        , button [ onClick (UpdateCanvas <| ChangeScale (model.canvasModel.scale + 1)) ] [ text "+ Scale" ]
-        , button [ onClick (UpdateCanvas <| ChangeScale (model.canvasModel.scale - 1)) ] [ text "- Scale" ]
-        , button [ onClick (UpdateCanvas <| RulerVisibleToggle) ] [ text "Toggle Ruler" ]
-        , button [ onClick (UpdateCanvas <| ChangeTool Pencil) ] [ text "✎" ]
-        , button [ onClick (UpdateCanvas <| ChangeTool Eraser) ] [ text "▱" ]
-        , button [ onClick (UpdateCanvas <| DownloadCanvas { defaultDownloadImageData | format = Png }) ] [ text "⇓Png" ]
-        , button [ onClick (UpdateCanvas <| DownloadCanvas { defaultDownloadImageData | format = Svg }) ] [ text "⇓Svg" ]
-        , button [ onClick (UpdateCanvas <| DownloadCanvas { defaultDownloadImageData | format = Bmp }) ] [ text "⇓Bmp" ]
-        , button [ onClick (UpdateCanvas <| DownloadCanvas { defaultDownloadImageData | format = Gif }) ] [ text "⇓Gif" ]
-        , button [ onClick (UpdateCanvas <| UploadCanvas) ] [ text "⇑" ]
+        , button [ onClick (UpdateModelCanvas <| CanvasClearLayer) ] [ text "Clear" ]
+        , button [ onClick (UpdateModelCanvas <| ChangeScale (model.canvasModel.scale + 1)) ] [ text "+ Scale" ]
+        , button [ onClick (UpdateModelCanvas <| ChangeScale (model.canvasModel.scale - 1)) ] [ text "- Scale" ]
+        , button [ onClick (UpdateModelCanvas <| RulerVisibleToggle) ] [ text "Toggle Ruler" ]
+        , button [ onClick (UpdateModelCanvas <| ChangeTool Pencil) ] [ text "✎" ]
+        , button [ onClick (UpdateModelCanvas <| ChangeTool Eraser) ] [ text "▱" ]
+        , button [ onClick (UpdateModelCanvas <| DownloadCanvas { defaultDownloadImageData | format = Png }) ] [ text "⇓Png" ]
+        , button [ onClick (UpdateModelCanvas <| DownloadCanvas { defaultDownloadImageData | format = Svg }) ] [ text "⇓Svg" ]
+        , button [ onClick (UpdateModelCanvas <| DownloadCanvas { defaultDownloadImageData | format = Bmp }) ] [ text "⇓Bmp" ]
+        , button [ onClick (UpdateModelCanvas <| DownloadCanvas { defaultDownloadImageData | format = Gif }) ] [ text "⇓Gif" ]
+        , button [ onClick (UpdateModelCanvas <| UploadCanvas) ] [ text "⇑" ]
         , button [ onClick Test ] [ text "Test" ]
         ]
 
@@ -153,10 +158,10 @@ view model =
         , style "height" "100%"
         ]
         [ viewMsgButtons model
-        , Canvas.Mvu.viewCanvasContainer model.canvasModel |> Html.map UpdateCanvas
-        , Canvas.Mvu.viewSelectedColor model.canvasModel |> Html.map UpdateCanvas
-        , Canvas.Mvu.viewColorpalette model.canvasModel |> Html.map UpdateCanvas
-        , Canvas.Mvu.viewLayers model.canvasModel |> Html.map UpdateCanvas
+        , Canvas.Mvu.viewCanvasContainer model.canvasModel |> Html.map UpdateModelCanvas
+        , Canvas.Mvu.viewSelectedColor model.canvasModel |> Html.map UpdateModelCanvas
+        , Canvas.Mvu.viewColorpalette model.canvasModel |> Html.map UpdateModelCanvas
+        , Canvas.Mvu.viewLayers model.canvasModel |> Html.map UpdateModelCanvas
 
         --, viewDebug model.maybeRenameLayerTimer
         ]
