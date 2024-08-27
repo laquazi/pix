@@ -146,7 +146,7 @@ drawLine a b model =
                                     Eraser ->
                                         QuadEmpty
                         in
-                        { layer | data = layer.data |> Quadtree.insertLine tree a b model.scale }
+                        { layer | data = layer.data |> Quadtree.insertLine a b tree model.scale }
                     )
     in
     { model | layers = newLayers }
@@ -169,7 +169,7 @@ drawLineTest lineMethod a b model =
                                     Eraser ->
                                         QuadEmpty
                         in
-                        { layer | data = layer.data |> Quadtree.insertLineUsing lineMethod tree a b model.scale }
+                        { layer | data = layer.data |> Quadtree.insertAtCoords (lineMethod a b) tree model.scale }
                     )
     in
     { model | layers = newLayers }

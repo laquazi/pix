@@ -175,21 +175,21 @@ insertAtCoord insertTree ({ x, y } as coord) depth tree =
                     |> QuadNode
 
 
-insertLineUsing : (Point -> Point -> List Point) -> Quadtree a -> Point -> Point -> Int -> Quadtree a -> Quadtree a
-insertLineUsing f insertTree a b depth tree =
-    f a b
+insertAtCoords : List Point -> Quadtree a -> Int -> Quadtree a -> Quadtree a
+insertAtCoords points insertTree depth tree =
+    points
         |> List.map (\x -> insertAtCoord insertTree x depth)
         |> List.foldl (<|) tree
 
 
-insertLine : Quadtree a -> Point -> Point -> Int -> Quadtree a -> Quadtree a
-insertLine =
-    insertLineUsing generateLine
+insertLine : Point -> Point -> Quadtree a -> Int -> Quadtree a -> Quadtree a
+insertLine a b =
+    generateLine a b |> insertAtCoords
 
 
-insertLineBetween : Quadtree a -> Point -> Point -> Int -> Quadtree a -> Quadtree a
-insertLineBetween =
-    insertLineUsing generateLineBetween
+insertLineBetween : Point -> Point -> Quadtree a -> Int -> Quadtree a -> Quadtree a
+insertLineBetween a b =
+    generateLineBetween a b |> insertAtCoords
 
 
 calculateMaxDepth0 : Int -> Quadtree a -> Int
