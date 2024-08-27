@@ -102,3 +102,74 @@ delayMsg timeMs msg =
 flip : (a -> b -> c) -> (b -> a -> c)
 flip f b a =
     f a b
+
+
+{-| NOTE: adopted from `https://wiki.haskell.org/Bresenham%27s_line_drawing_algorithm`
+NOTE: includes a and b
+-}
+generateLine : Point -> Point -> List Point
+generateLine a b =
+    let
+        steep =
+            abs (b.y - a.y) > abs (b.x - a.x)
+
+        maySwitch =
+            if steep then
+                \{ x, y } -> { x = y, y = x }
+
+            else
+                identity
+
+        ( ( x1, y1 ), ( x2, y2 ) ) =
+            case
+                [ maySwitch a, maySwitch b ]
+                    |> List.map (\{ x, y } -> ( x, y ))
+                    |> List.sort
+            of
+                [ x, y ] ->
+                    ( x, y )
+
+                _ ->
+                    -- NOTE: this should never happen
+                    ( ( 0, 0 ), ( 0, 0 ) )
+
+        dx =
+            x2 - x1
+
+        dy =
+            abs (y2 - y1)
+
+        stepY =
+            if y1 < y2 then
+                1
+
+            else
+                -1
+
+        go ( xTemp, yTemp, error ) =
+            let
+                tempError =
+                    error + dy
+
+                ( newY, newError ) =
+                    if (2 * tempError) >= dx then
+                        ( yTemp + stepY, tempError - dx )
+
+                    else
+                        ( yTemp, tempError )
+            in
+            if xTemp > x2 then
+                Nothing
+
+            else
+                Just ( { x = xTemp, y = yTemp }, ( xTemp + 1, newY, newError ) )
+    in
+    List.Extra.unfoldr go ( x1, y1, 0 )
+        |> List.map maySwitch
+
+
+{-| NOTE: does not include a and b
+-}
+generateLineBetween : Point -> Point -> List Point
+generateLineBetween a b =
+    generateLine a b |> List.filter (\x -> x /= a && x /= b)
