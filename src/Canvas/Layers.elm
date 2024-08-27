@@ -1,5 +1,6 @@
 module Canvas.Layers exposing (..)
 
+import Array
 import Color exposing (Color)
 import Common exposing (colorBlendingNormal)
 import Maybe.Extra
@@ -82,9 +83,14 @@ addWithPrefix prefix data layers =
                 , data = data
             }
     in
-    layers
-        |> SelectArray.insertAfter newLayer
-        |> SelectArray.selectNext
+    if SelectArray.isEmpty layers then
+        layers
+            |> SelectArray.insertAlone newLayer
+
+    else
+        layers
+            |> SelectArray.insertAfter newLayer
+            |> SelectArray.selectNext
 
 
 addLayer : Quadtree Color -> Layers -> Layers
@@ -100,3 +106,14 @@ addComposite layers =
 addEmpty : Layers -> Layers
 addEmpty =
     addLayer emptyLayer.data
+
+
+{-| NOTE: `SelectArray.selectPrev >> SelectArray.removeAfter` prevents the deletion of the last layer, this one does not
+-}
+removeSelected : SelectArray a -> SelectArray a
+removeSelected array =
+    if SelectArray.isAlone array then
+        SelectArray.removeSelected array
+
+    else
+        array |> SelectArray.selectPrev |> SelectArray.removeAfter

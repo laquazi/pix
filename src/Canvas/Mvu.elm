@@ -152,8 +152,8 @@ drawLine a b model =
     { model | layers = newLayers }
 
 
-drawLineTest : Point -> Point -> Model -> Model
-drawLineTest a b model =
+drawLineTest : (Point -> Point -> List Point) -> Point -> Point -> Model -> Model
+drawLineTest lineMethod a b model =
     let
         newLayers =
             model.layers
@@ -169,7 +169,7 @@ drawLineTest a b model =
                                     Eraser ->
                                         QuadEmpty
                         in
-                        { layer | data = layer.data |> Quadtree.insertLine tree a b model.scale }
+                        { layer | data = layer.data |> Quadtree.insertLineUsing lineMethod tree a b model.scale }
                     )
     in
     { model | layers = newLayers }
@@ -417,12 +417,7 @@ update msg model =
             ( { model | layers = newLayers }, Cmd.none )
 
         RemoveSelectedLayer ->
-            let
-                newLayers =
-                    model.layers
-                        |> SelectArray.removeSelected
-            in
-            ( { model | layers = newLayers }, Cmd.none )
+            ( { model | layers = Layers.removeSelected model.layers }, Cmd.none )
 
         LayerRenameSetReady index ->
             ( { model | layerRenameData = LayerRenameReady index }, Cmd.none )

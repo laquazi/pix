@@ -353,6 +353,32 @@ removeAt =
     thenUpdate << Array.Extra.removeAt
 
 
+removeBefore : SelectArray a -> SelectArray a
+removeBefore array =
+    ensure <|
+        case array of
+            Selected i x ->
+                x
+                    |> Array.Extra.removeAt (i - 1)
+                    |> Selected i
+
+            _ ->
+                array
+
+
+removeAfter : SelectArray a -> SelectArray a
+removeAfter array =
+    ensure <|
+        case array of
+            Selected i x ->
+                x
+                    |> Array.Extra.removeAt (i + 1)
+                    |> Selected i
+
+            _ ->
+                array
+
+
 push : a -> SelectArray a -> SelectArray a
 push =
     thenUpdate << Array.push
@@ -442,3 +468,25 @@ swapAt a b array =
                 |> List.Extra.swapAt a b
                 |> Array.fromList
                 |> Selected i
+
+
+{-| NOTE: `isAlone` means that the array has _exactly one_ item: _selected_
+-}
+isAlone : SelectArray a -> Bool
+isAlone array =
+    case array of
+        Selected i x ->
+            case ( i, Array.length x ) of
+                ( 0, 1 ) ->
+                    True
+
+                _ ->
+                    False
+
+        _ ->
+            False
+
+
+insertAlone : a -> SelectArray a -> SelectArray a
+insertAlone value =
+    push value >> setSelection 0

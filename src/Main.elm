@@ -9,8 +9,6 @@ import Debug exposing (log)
 import Html exposing (Html, button, div, text)
 import Html.Attributes exposing (style, value)
 import Html.Events exposing (onClick)
-import Quadtree exposing (Quadtree(..))
-import SelectArray
 
 
 logCmd : String -> a -> Cmd Msg
@@ -102,8 +100,9 @@ update msg model =
 
                 newCanvasModel =
                     canvasModel
-                        |> Canvas.Mvu.drawLineTest { x = 0, y = 0 } { x = 2, y = 3 }
-                        |> Canvas.Mvu.drawLineTest { x = 7, y = 7 } { x = 5, y = 6 }
+                        |> Canvas.Mvu.drawLineTest generateLine { x = 0, y = 0 } { x = 2, y = 3 }
+                        |> Canvas.Mvu.drawLineTest generateLineBetween { x = 2, y = 3 } { x = 7, y = 0 }
+                        |> Canvas.Mvu.drawLineTest generateLine { x = 7, y = 0 } { x = 5, y = 6 }
             in
             ( { model | canvasModel = newCanvasModel }, Cmd.none )
 
