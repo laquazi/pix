@@ -70,6 +70,12 @@ toIndexedList =
     toArray >> Array.toIndexedList
 
 
+{-| NOTE: Basics.clamp assumes that `a <= b`, this one does not
+-}
+clamp a b x =
+    max a x |> min b
+
+
 ensure : SelectArray a -> SelectArray a
 ensure array =
     case array of
@@ -88,7 +94,8 @@ ensure array =
                 Empty
 
             else
-                x |> Selected (i |> Basics.clamp 0 (Array.length x - 1))
+                --x |> Selected (i |> Basics.clamp 0 (Array.length x - 1))
+                x |> Selected (i |> clamp 0 (Array.length x - 1))
 
 
 thenEnsure : (SelectArray a -> SelectArray b) -> SelectArray a -> SelectArray b
@@ -144,6 +151,28 @@ updateSelection f array =
             Selected i x ->
                 (f <| Just i)
                     |> Maybe.Extra.unwrap (NotSelected x) (flip Selected x)
+
+
+selectPrev : SelectArray a -> SelectArray a
+selectPrev array =
+    ensure <|
+        case array of
+            Selected i x ->
+                Selected (i - 1) x
+
+            _ ->
+                array
+
+
+selectNext : SelectArray a -> SelectArray a
+selectNext array =
+    ensure <|
+        case array of
+            Selected i x ->
+                Selected (i + 1) x
+
+            _ ->
+                array
 
 
 update : (Maybe Int -> Array a -> SelectArray b) -> SelectArray a -> SelectArray b
@@ -293,6 +322,30 @@ removeSelected array =
 insertAt : Int -> a -> SelectArray a -> SelectArray a
 insertAt index value =
     thenUpdate <| Array.Extra.insertAt index value
+
+
+insertBefore : a -> SelectArray a -> SelectArray a
+insertBefore value array =
+    case array of
+        Selected i x ->
+            x
+                |> Array.Extra.insertAt i value
+                |> Selected i
+
+        _ ->
+            array
+
+
+insertAfter : a -> SelectArray a -> SelectArray a
+insertAfter value array =
+    case array of
+        Selected i x ->
+            x
+                |> Array.Extra.insertAt (i + 1) value
+                |> Selected i
+
+        _ ->
+            array
 
 
 removeAt : Int -> SelectArray a -> SelectArray a

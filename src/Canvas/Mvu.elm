@@ -146,11 +146,30 @@ drawLine a b model =
                                     Eraser ->
                                         QuadEmpty
                         in
-                        { layer
-                            | data =
-                                layer.data
-                                    |> Quadtree.insertLine tree a b model.scale
-                        }
+                        { layer | data = layer.data |> Quadtree.insertLine tree a b model.scale }
+                    )
+    in
+    { model | layers = newLayers }
+
+
+drawLineTest : Point -> Point -> Model -> Model
+drawLineTest a b model =
+    let
+        newLayers =
+            model.layers
+                |> Layers.addLayer QuadEmpty
+                |> SelectArray.updateSelected
+                    (\layer ->
+                        let
+                            tree =
+                                case model.tool of
+                                    Pencil ->
+                                        QuadLeaf model.color
+
+                                    Eraser ->
+                                        QuadEmpty
+                        in
+                        { layer | data = layer.data |> Quadtree.insertLine tree a b model.scale }
                     )
     in
     { model | layers = newLayers }

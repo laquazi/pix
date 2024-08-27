@@ -101,7 +101,9 @@ update msg model =
                     model.canvasModel
 
                 newCanvasModel =
-                    canvasModel |> Canvas.Mvu.drawLine { x = 1, y = 1 } { x = 6, y = 6 }
+                    canvasModel
+                        |> Canvas.Mvu.drawLineTest { x = 0, y = 0 } { x = 2, y = 3 }
+                        |> Canvas.Mvu.drawLineTest { x = 7, y = 7 } { x = 5, y = 6 }
             in
             ( { model | canvasModel = newCanvasModel }, Cmd.none )
 

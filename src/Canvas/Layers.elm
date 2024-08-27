@@ -74,21 +74,17 @@ addWithPrefix prefix data layers =
                     (\layer -> Parser.run (parserLayerName prefix) layer.name |> Result.toMaybe)
                 |> SelectArray.maximum
                 |> Maybe.withDefault 0
+                |> (+) 1
 
         newLayer =
             { emptyLayer
-                | name = prefix ++ " " ++ String.fromInt (nameIndex + 1)
+                | name = prefix ++ " " ++ String.fromInt nameIndex
                 , data = data
             }
-
-        newSelection =
-            layers
-                |> SelectArray.getSelection
-                |> Maybe.Extra.unwrap (SelectArray.length layers) ((+) 1)
     in
     layers
-        |> SelectArray.insertAt newSelection newLayer
-        |> SelectArray.setSelection newSelection
+        |> SelectArray.insertAfter newLayer
+        |> SelectArray.selectNext
 
 
 addLayer : Quadtree Color -> Layers -> Layers
